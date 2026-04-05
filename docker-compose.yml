@@ -1,0 +1,71 @@
+version: "3.9"
+
+services:
+  travel-archive:
+    build: .
+    container_name: travel-archive
+    restart: unless-stopped
+
+    ports:
+      # Web interface — change 8000 to any port you want on the host
+      - "8000:8000"
+      # SSH access — change 2222 to whatever host port you prefer
+      # Connect with:  ssh root@your-server-ip -p 2222
+      - "2222:22"
+
+    environment:
+      PORT: 8000
+      # Paste your SSH public key here (the contents of ~/.ssh/id_ed25519.pub or id_rsa.pub)
+      # Alternatively, use the secrets block below.
+      AUTHORIZED_KEYS: ""
+
+    volumes:
+      # ── Persistent data (POIs, folders, uploaded media) ──────────────────
+      # These survive container rebuilds. Back up this directory.
+      - ./data:/app/data
+
+      # ── Your video library (read-only) ───────────────────────────────────
+      # Change the left side to wherever your films actually live.
+      # Inside the container this appears as /films (use that path in the browser).
+      - /path/to/your/films:/films:ro
+
+      # ── Optional: SSH host keys (persist across rebuilds) ────────────────
+      # Without this, host key changes on every rebuild and SSH will warn you.
+      - ssh-host-keys:/etc/ssh
+
+    # ── Resource limits (optional but recommended on shared servers) ─────────
+    # Uncomment to cap ffmpeg from eating all CPU/RAM:
+    # deploy:
+    #   resources:
+    #     limits:
+    #       cpus: "2.0"
+    #       memory: 2G
+
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # ── Optional: Caddy reverse proxy with automatic HTTPS ───────────────────
+  # Uncomment this whole block if you have a domain pointing at this server.
+  # Replace "travel.example.com" with your actual domain.
+  #
+  # caddy:
+  #   image: caddy:2-alpine
+  #   container_name: travel-caddy
+  #   restart: unless-stopped
+  #   ports:
+  #     - "80:80"
+  #     - "443:443"
+  #   volumes:
+  #     - ./Caddyfile.conf:/etc/caddy/Caddyfile:ro
+  #     - caddy-data:/data
+  #     - caddy-config:/config
+  #   depends_on:
+  #     - travel-archive
+
+volumes:
+  ssh-host-keys:
+  # caddy-data:
+  # caddy-config:

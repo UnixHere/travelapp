@@ -1,0 +1,32 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Virtual environment (not needed - no external dependencies)
+venv/
+.venv/
+env/
+
+# Data - pois, folders, routes (personal data, back up separately)
+data/media/
+# Comment out the line below if you want to keep your POI/folder data in git
+# data/
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Logs
+*.log
+
+# Environment variables
+.env

@@ -1,0 +1,6 @@
+v admin view ked je fullscreen video a bufferuje tak sa cela timelina posunie ked video zmizne na chvilku nech to opravi tak ako to je v normal view.
+spravit doker a ci ho vobec treba ked viacej uzivatelov sa vie pripojit naraz na moj python server ale napriek tomu Docker.
+spravit server hosnut to.
+pridat moznost priameho prehravania tam kde sa importuje folder a hlada sa v kvzi ffile browseri.
+ked sa podari spravit player na iso nie je potreba az tak velmi ale.
+moznost ssh pripojit sa na virtualku beziacu na servery v pripade zeby serrver nesiel.

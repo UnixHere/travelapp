@@ -1,0 +1,2306 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Travel Archive — Admin</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#f0f0f0;--win:#fff;--win2:#fafafa;
+  --border:#c0c0c0;--border2:#e0e0e0;
+  --blue:#0078d4;--blue2:#106ebe;--blue3:#cce4f7;
+  --text:#000;--muted:#666;--sel:#cce4f7;
+  --toolbar:#f2f2f2;--sidebar:#f5f5f5;
+  --accent:#c0392b;--green:#27ae60;--gold:#d4a853;
+}
+html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;font-size:13px}
+body{display:flex;flex-direction:column}
+
+/* TITLE BAR */
+#titlebar{height:30px;min-height:30px;flex-shrink:0;background:linear-gradient(to bottom,#f4f4f4,#e4e4e4);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 10px;gap:8px;user-select:none}
+#tt{font-size:12px;font-weight:700;color:#222;flex:1}
+#conn-badge{display:flex;align-items:center;gap:5px;font-size:11px;color:var(--muted)}
+.cdot{width:7px;height:7px;border-radius:50%;flex-shrink:0;transition:background .3s}
+.cdot.ok{background:var(--green);box-shadow:0 0 5px var(--green)}
+.cdot.err{background:var(--accent)}
+.cdot.checking{background:var(--gold);animation:pulse 1s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+#btn-logout{padding:2px 9px;background:none;border:1px solid var(--border);border-radius:2px;font-size:11px;color:var(--muted);cursor:pointer;transition:all .1s}
+#btn-logout:hover{border-color:var(--accent);color:var(--accent)}
+
+/* RIBBON */
+#ribbon{height:76px;min-height:76px;flex-shrink:0;background:var(--toolbar);border-bottom:1px solid var(--border);display:flex;align-items:stretch;padding:0 4px}
+.rg{display:flex;flex-direction:column;align-items:center;padding:5px 6px 3px;border-right:1px solid var(--border2);gap:2px;min-width:54px}
+.rg:last-child{border-right:none}
+.rg-lbl{font-size:9px;color:var(--muted);letter-spacing:.3px;margin-top:auto;text-align:center;padding-top:2px}
+.rb{display:flex;flex-direction:column;align-items:center;gap:2px;padding:3px 6px;border:1px solid transparent;border-radius:2px;cursor:pointer;background:none;font-size:11px;color:#222;min-width:48px;transition:all .1s;position:relative}
+.rb:hover{background:#e6e6e6;border-color:var(--border)}
+.rb:active{background:#d0d0d0}
+.rb.active{background:var(--blue3);border-color:#8ab8d8}
+.ri{font-size:22px;line-height:1}
+.rbs{display:flex;align-items:center;gap:4px;padding:2px 7px;border:1px solid transparent;border-radius:2px;cursor:pointer;background:none;font-size:11px;color:#222;transition:all .1s;white-space:nowrap;width:100%;text-align:left}
+.rbs:hover{background:#e6e6e6;border-color:var(--border)}
+.rgc{display:flex;flex-direction:column;gap:1px;padding:4px 6px 3px;border-right:1px solid var(--border2)}
+.rgc .rg-lbl{text-align:center;margin-top:3px}
+
+/* tooltip */
+[data-tip]{position:relative}
+[data-tip]::after{content:attr(data-tip);position:absolute;bottom:calc(100% + 5px);left:50%;transform:translateX(-50%);background:#333;color:#fff;font-size:10px;padding:3px 7px;border-radius:3px;white-space:nowrap;pointer-events:none;opacity:0;transition:opacity .15s;z-index:9999}
+[data-tip]:hover::after{opacity:1}
+
+/* ADDRESS BAR */
+#addrbar{height:26px;min-height:26px;flex-shrink:0;background:#fff;border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 6px;gap:5px}
+.ab{width:20px;height:20px;border:1px solid transparent;border-radius:2px;background:none;cursor:pointer;font-size:12px;display:flex;align-items:center;justify-content:center;transition:all .1s}
+.ab:hover{background:#e8e8e8;border-color:var(--border)}
+#addr-path{flex:1;height:18px;background:var(--bg);border:1px solid var(--border);border-radius:2px;padding:0 6px;font-size:11px;font-family:'DM Mono',monospace;color:#222;outline:none;cursor:default}
+#addr-path:focus{background:#fff;border-color:var(--blue)}
+#sw{position:relative;display:flex;align-items:center}
+#sw::before{content:'🔍';position:absolute;left:5px;font-size:10px;pointer-events:none}
+#addr-search{width:165px;height:18px;background:var(--bg);border:1px solid var(--border);border-radius:2px;padding:0 6px 0 21px;font-size:11px;outline:none}
+#addr-search:focus{background:#fff;border-color:var(--blue)}
+
+/* BODY */
+#body{flex:1;display:flex;overflow:hidden;min-height:0}
+
+/* LEFT NAV */
+#nav{width:210px;min-width:110px;max-width:420px;background:var(--sidebar);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden;flex-shrink:0}
+#nav-hdr{padding:4px 10px;font-size:9.5px;font-weight:700;color:var(--muted);letter-spacing:.7px;text-transform:uppercase;border-bottom:1px solid var(--border2);background:var(--toolbar);flex-shrink:0}
+#nav-tree{flex:1;overflow-y:auto;padding:2px 0}
+.ni{display:flex;align-items:center;gap:5px;padding:4px 8px 4px 12px;cursor:pointer;user-select:none;font-size:12px;transition:background .07s;min-height:24px}
+.ni:hover{background:rgba(0,120,212,.07)}
+.ni.active{background:var(--sel);color:var(--blue2)}
+.ni .nico{font-size:13px;flex-shrink:0}
+.ni .ndot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
+.ni .nname{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ni .ncnt{font-size:10px;color:var(--muted);flex-shrink:0}
+.ni .ndel{background:none;border:none;cursor:pointer;color:transparent;font-size:12px;padding:1px 3px;border-radius:2px;transition:all .1s;flex-shrink:0}
+.ni:hover .ndel{color:#bbb}
+.ni .ndel:hover{color:var(--accent)!important;background:rgba(192,57,43,.12)}
+.nlbl{padding:6px 10px 2px 12px;font-size:9.5px;color:var(--muted);letter-spacing:.8px;text-transform:uppercase;font-weight:700}
+#nav-new{padding:7px 8px;border-top:1px solid var(--border2);background:var(--toolbar);flex-shrink:0}
+.nir{display:flex;gap:4px;align-items:center;margin-top:3px}
+.nir input[type=text]{flex:1;height:22px;padding:0 6px;border:1px solid var(--border);border-radius:2px;font-size:11px;outline:none;font-family:'DM Sans',sans-serif}
+.nir input[type=text]:focus{border-color:var(--blue)}
+.nir input[type=color]{width:22px;height:22px;border:1px solid var(--border);border-radius:2px;padding:1px;cursor:pointer;background:none}
+.nir button{height:22px;padding:0 8px;background:var(--blue);border:none;border-radius:2px;color:#fff;font-size:11px;cursor:pointer;white-space:nowrap;transition:background .1s}
+.nir button:hover{background:var(--blue2)}
+
+/* SPLITTERS */
+.spl{width:4px;min-width:4px;background:var(--border2);cursor:col-resize;flex-shrink:0;display:flex;align-items:center;justify-content:center;transition:background .1s}
+.spl:hover,.spl.dragging{background:var(--blue);opacity:.65}
+.spl::after{content:'';width:1px;height:22px;background:rgba(255,255,255,.6);border-radius:1px}
+#hspl{height:5px;min-height:5px;background:var(--border2);cursor:row-resize;flex-shrink:0;display:flex;align-items:center;justify-content:center;transition:background .1s}
+#hspl:hover,#hspl.dragging{background:var(--blue);opacity:.6}
+#hspl::after{content:'';height:1px;width:22px;background:rgba(255,255,255,.6);border-radius:1px}
+
+/* CENTRE */
+#centre{flex:1;display:flex;flex-direction:column;overflow:hidden;min-width:180px}
+
+/* FILE LIST */
+#files{display:flex;flex-direction:column;overflow:hidden;min-height:60px}
+#col-heads{display:flex;align-items:center;height:20px;min-height:20px;flex-shrink:0;background:var(--toolbar);border-bottom:1px solid var(--border2);font-size:11px;font-weight:700;color:var(--muted)}
+.ch{padding:0 5px;height:100%;display:flex;align-items:center;cursor:pointer;border-right:1px solid var(--border2);user-select:none;white-space:nowrap}
+.ch:hover{background:#e4e4e4}
+.ch.cn{flex:1;min-width:90px}
+.ch.cy{width:50px}
+.ch.cl{width:145px}
+.ch.cc{width:108px}
+.ch.cf{width:50px}
+#file-list{flex:1;overflow-y:auto}
+.fr{display:flex;align-items:center;padding:0 7px;height:22px;min-height:22px;cursor:pointer;user-select:none;border-bottom:1px solid #f0f0f0;font-size:12px;transition:background .05s}
+.fr:hover{background:#eef4fb}
+.fr.sel{background:var(--sel)}
+.fri{font-size:12px;margin-right:5px;flex-shrink:0}
+.frn{flex:1;min-width:90px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.fry{width:50px;font-family:'DM Mono',monospace;font-size:10.5px;color:var(--muted)}
+.frl{width:145px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:10.5px;color:var(--muted)}
+.frc{width:108px;display:flex;align-items:center;gap:4px;overflow:hidden}
+.frd{width:7px;height:7px;border-radius:50%;flex-shrink:0}
+.frcn{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:11px}
+.frf{width:50px;font-size:10.5px;color:var(--muted)}
+.fra{display:none;gap:3px;align-items:center;flex-shrink:0}
+.fr:hover .fra,.fr.sel .fra{display:flex}
+.frb{width:17px;height:17px;border:1px solid var(--border);border-radius:2px;background:var(--win);cursor:pointer;font-size:10px;display:flex;align-items:center;justify-content:center;color:var(--muted);transition:all .1s}
+.frb:hover{background:#fdecea;border-color:var(--accent);color:var(--accent)}
+.frb.e:hover{background:#e8f0fe;border-color:var(--blue);color:var(--blue)}
+/* open button */
+.frb.o:hover{background:#f0fff4;border-color:var(--green);color:var(--green)}
+
+/* MAP */
+#map-section{display:flex;flex-direction:column;flex:1;min-height:60px;overflow:hidden}
+#map-tip-bar{height:20px;min-height:20px;flex-shrink:0;background:var(--toolbar);border-bottom:1px solid var(--border2);display:flex;align-items:center;padding:0 8px;font-size:10.5px;color:var(--muted)}
+#map{flex:1;min-height:0;position:relative}
+#map-pin-tip{position:absolute;bottom:30px;left:50%;transform:translateX(-50%);background:rgba(0,50,110,.88);color:#fff;font-family:'DM Mono',monospace;font-size:11px;padding:5px 14px;border-radius:12px;pointer-events:none;z-index:600;opacity:0;transition:opacity .3s;white-space:nowrap}
+#map-pin-tip.show{opacity:1}
+
+/* STATUSBAR */
+#statusbar{height:20px;min-height:20px;flex-shrink:0;background:var(--toolbar);border-top:1px solid var(--border);display:flex;align-items:center;padding:0 8px;font-size:11px;color:var(--muted)}
+
+/* DETAIL */
+#detail{width:320px;min-width:195px;max-width:560px;background:var(--sidebar);border-left:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden;flex-shrink:0}
+#dtabs{display:flex;border-bottom:1px solid var(--border);background:var(--toolbar);flex-shrink:0}
+.dt{flex:1;padding:5px 0;text-align:center;font-size:11px;cursor:pointer;border-bottom:2px solid transparent;color:var(--muted);transition:all .12s;user-select:none}
+.dt.active{color:var(--blue2);border-bottom-color:var(--blue2);background:#fff}
+.dt:hover:not(.active){background:#e6e6e6}
+#dbody{flex:1;overflow:hidden;display:flex;flex-direction:column;min-height:0}
+.dp{flex:1;overflow-y:auto;padding:10px 12px;display:none;min-height:0}
+.dp.show{display:block}
+
+/* FORM */
+.fld{margin-bottom:8px}
+.fld label{display:block;font-size:10px;letter-spacing:.6px;text-transform:uppercase;color:var(--muted);font-weight:700;margin-bottom:3px}
+.fld input[type=text],.fld input[type=date],.fld textarea,.fld select{width:100%;padding:5px 7px;border:1px solid var(--border);border-radius:2px;font-family:'DM Sans',sans-serif;font-size:12px;color:var(--text);background:#fff;outline:none;transition:border-color .15s}
+.fld input:focus,.fld textarea:focus,.fld select:focus{border-color:var(--blue);box-shadow:0 0 0 2px rgba(0,120,212,.12)}
+.fld textarea{resize:vertical;min-height:55px;line-height:1.4}
+.crow{display:flex;gap:6px}
+.crow .fld{flex:1}
+.chint{font-size:10px;color:var(--muted);font-style:italic;margin:-4px 0 7px;line-height:1.4}
+#dz{border:2px dashed var(--border);border-radius:2px;padding:8px;text-align:center;cursor:pointer;transition:all .15s;background:var(--win2);margin-bottom:4px}
+#dz:hover,#dz.ov{border-color:var(--blue);background:#f0f8ff}
+#dz span{font-size:11px;color:var(--muted)}
+#dz input[type=file]{display:none}
+#dzlist{font-size:10px;color:var(--muted);max-height:55px;overflow-y:auto}
+#dzlist div{padding:1px 0}
+.btp{width:100%;padding:6px;margin-top:5px;background:var(--blue);border:none;border-radius:2px;color:#fff;font-size:12px;cursor:pointer;transition:background .12s}
+.btp:hover{background:var(--blue2)}
+.btp:disabled{background:#aaa;cursor:not-allowed}
+.brow{display:flex;gap:5px}
+.brow .btp{flex:1}
+.bts{flex:1;padding:6px;margin-top:5px;background:#fff;border:1px solid var(--border);border-radius:2px;color:#333;font-size:12px;cursor:pointer;transition:all .12s}
+.bts:hover{background:#f0f0f0}
+#fmsg{font-size:11px;min-height:15px;color:var(--muted);margin-top:4px;font-family:'DM Mono',monospace}
+#fmsg.ok{color:var(--green)}
+#fmsg.err{color:var(--accent)}
+
+/* PROPS */
+.pg{margin-bottom:9px}
+.pl{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;font-weight:700;margin-bottom:2px}
+.pv{font-size:12px;color:#222;word-break:break-word}
+.pv.mo{font-family:'DM Mono',monospace;font-size:11px}
+.empty{padding:18px 10px;text-align:center;color:var(--muted);font-size:12px}
+.empty .ei{font-size:26px;margin-bottom:5px}
+.mgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:3px;margin-top:4px}
+.mgrid img{width:100%;aspect-ratio:4/3;object-fit:cover;border-radius:2px;cursor:zoom-in;border:1px solid var(--border)}
+.mgrid img:hover{opacity:.85}
+.mi{background:#fff;border:1px solid var(--border);border-radius:2px;padding:5px 7px;font-size:10px;font-family:'DM Mono',monospace;color:var(--muted);display:flex;align-items:center;gap:5px;margin-bottom:3px}
+.vlc{color:#f96900;text-decoration:none;font-size:10px;border:1px solid #f96900;padding:2px 5px;border-radius:2px;margin-left:auto;transition:all .1s;white-space:nowrap}
+.vlc:hover{background:#f96900;color:#fff}
+
+/* ── FILE BROWSER (Import pane) ── */
+#fb-toolbar{display:flex;align-items:center;gap:4px;margin-bottom:5px;flex-wrap:wrap}
+#fb-toolbar button{padding:3px 7px;border:1px solid var(--border);border-radius:2px;background:var(--win);font-size:11px;cursor:pointer;transition:all .1s;white-space:nowrap}
+#fb-toolbar button:hover{background:#e8e8e8}
+#fb-toolbar button:disabled{opacity:.4;cursor:default}
+#fb-path-inp{flex:1;min-width:80px;padding:3px 6px;border:1px solid var(--border);border-radius:2px;font-size:10.5px;font-family:'DM Mono',monospace;outline:none}
+#fb-path-inp:focus{border-color:var(--blue)}
+#fb-filter{width:100%;padding:3px 7px;border:1px solid var(--border);border-radius:2px;font-size:11px;outline:none;margin-bottom:5px}
+#fb-filter:focus{border-color:var(--blue)}
+#fb-breadcrumb{font-size:10px;color:var(--muted);font-family:'DM Mono',monospace;margin-bottom:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#fb-list{max-height:220px;overflow-y:auto;border:1px solid var(--border2);border-radius:2px;background:var(--win)}
+.fb-dir{display:flex;align-items:center;gap:5px;padding:3px 6px;cursor:pointer;font-size:11.5px;border-bottom:1px solid #f4f4f4;transition:background .07s;user-select:none}
+.fb-dir:hover{background:#eef4fb}
+.fb-file{display:flex;align-items:center;gap:5px;padding:3px 6px;border-bottom:1px solid #f4f4f4;font-size:11px;transition:background .07s}
+.fb-file:hover{background:#f7fbff}
+.fb-file.fb-linked{opacity:.55}
+.fb-fname{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.fb-fsz{font-size:9.5px;color:var(--muted);font-family:'DM Mono',monospace;flex-shrink:0;margin-right:2px}
+.fb-badge{font-size:9px;padding:1px 4px;border-radius:2px;border:1px solid;flex-shrink:0}
+.fb-badge.native{border-color:rgba(71,180,255,.4);color:#2a87d0}
+.fb-badge.stream{border-color:rgba(249,105,0,.4);color:#c05500}
+.fb-badge.linked{border-color:rgba(39,174,96,.5);color:#1a8046}
+.fb-btn{padding:2px 6px;border:none;border-radius:2px;color:#fff;font-size:10px;cursor:pointer;flex-shrink:0;white-space:nowrap;transition:background .1s}
+.fb-btn.lnk{background:var(--blue)}.fb-btn.lnk:hover{background:var(--blue2)}
+.fb-btn.cpy{background:var(--green)}.fb-btn.cpy:hover{background:#1a8046}
+#fb-status{font-size:10.5px;color:var(--muted);font-family:'DM Mono',monospace;min-height:14px;margin-top:4px}
+#fb-empty{padding:18px;text-align:center;color:var(--muted);font-size:11px}
+/* Relink-all collapsible */
+#relink-wrap{margin-top:10px;border:1px solid var(--border2);border-radius:2px}
+#relink-hdr{padding:5px 8px;font-size:10.5px;font-weight:600;cursor:pointer;background:var(--toolbar);display:flex;align-items:center;gap:5px;user-select:none}
+#relink-hdr:hover{background:#e8e8e8}
+#relink-body{display:none;padding:8px}
+#relink-body.open{display:block}
+#relink-body label{display:block;font-size:9.5px;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);font-weight:700;margin-bottom:2px;margin-top:6px}
+#relink-body label:first-child{margin-top:0}
+#relink-body input{width:100%;padding:4px 7px;border:1px solid var(--border);border-radius:2px;font-family:'DM Mono',monospace;font-size:11px;outline:none;margin-bottom:2px}
+#relink-body input:focus{border-color:var(--blue)}
+#btn-relink-all{margin-top:5px;width:100%;padding:5px;background:var(--blue);border:none;border-radius:2px;color:#fff;font-size:11px;cursor:pointer}
+#btn-relink-all:hover{background:var(--blue2)}
+#relink-out{font-size:10.5px;font-family:'DM Mono',monospace;color:var(--muted);margin-top:4px;min-height:14px}
+/* Relink picker modal */
+#rp-ov{display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:1500;backdrop-filter:blur(2px)}
+#rp-modal{display:none;position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:#fff;border:1px solid var(--border);border-radius:4px;box-shadow:0 8px 30px rgba(0,0,0,.22);z-index:1600;width:min(480px,93vw);max-height:85vh;flex-direction:column;overflow:hidden}
+#rp-hdr{background:var(--blue);padding:8px 12px;display:flex;justify-content:space-between;align-items:center;flex-shrink:0}
+#rp-hdr span{font-size:12px;color:#fff;font-weight:600}
+#rp-body{padding:10px 12px;overflow-y:auto;flex:1;min-height:0}
+#rp-toolbar{display:flex;align-items:center;gap:4px;margin-bottom:6px}
+#rp-toolbar button{padding:3px 7px;border:1px solid var(--border);border-radius:2px;background:var(--win);font-size:11px;cursor:pointer}
+#rp-toolbar button:hover{background:#e8e8e8}
+#rp-path-inp{flex:1;padding:3px 6px;border:1px solid var(--border);border-radius:2px;font-size:10.5px;font-family:'DM Mono',monospace;outline:none}
+#rp-path-inp:focus{border-color:var(--blue)}
+#rp-bc{font-size:10px;color:var(--muted);font-family:'DM Mono',monospace;margin-bottom:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#rp-list{max-height:260px;overflow-y:auto;border:1px solid var(--border2);border-radius:2px;background:var(--win)}
+#rp-status{font-size:10.5px;font-family:'DM Mono',monospace;color:var(--muted);margin-top:5px;min-height:14px}
+/* emf relink button */
+.emf .emfrelink{background:none;border:1px solid var(--border);border-radius:2px;cursor:pointer;color:var(--blue);font-size:10px;padding:1px 5px;white-space:nowrap;transition:all .1s;flex-shrink:0}
+.emf .emfrelink:hover{background:var(--blue3)}
+.sf{display:flex;align-items:center;gap:5px;padding:3px 5px;border-bottom:1px solid var(--border2);cursor:pointer;transition:background .07s}
+.sfn{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:11px}
+.sfsz{font-size:10px;color:var(--muted);font-family:'DM Mono',monospace;flex-shrink:0}
+.sfb{padding:2px 7px;background:var(--blue);border:none;border-radius:2px;color:#fff;font-size:10px;cursor:pointer;flex-shrink:0;white-space:nowrap}
+.sfb:hover{background:var(--blue2)}
+
+/* ── POI VIEWER MODAL (like viewer side) ── */
+#view-ov{
+  display:none;position:fixed;inset:0;
+  background:rgba(0,0,0,0.75);z-index:1050;
+  backdrop-filter:blur(4px);
+}
+#view-modal{
+  display:none;position:fixed;
+  top:50%;left:50%;transform:translate(-50%,-50%);
+  background:#161624;
+  border:1px solid #2a2a3e;
+  border-radius:10px;
+  box-shadow:0 12px 50px rgba(0,0,0,0.7);
+  z-index:1060;
+  width:min(600px,94vw);
+  max-height:90vh;
+  flex-direction:column;overflow:hidden;
+  color:#e8e0d0;
+  font-family:'DM Sans',sans-serif;
+}
+#view-modal-hdr{
+  background:#1e1e30;
+  padding:14px 18px;
+  border-bottom:2px solid #d4a853;
+  display:flex;justify-content:space-between;align-items:flex-start;
+  gap:10px;
+}
+#view-modal-name{
+  font-family:Georgia,serif;
+  font-size:1.15rem;color:#d4a853;
+  flex:1;
+}
+#view-modal-close{
+  background:none;border:none;color:#6a6580;
+  font-size:1.4rem;cursor:pointer;padding:0 4px;line-height:1;
+  transition:color .15s;flex-shrink:0;
+}
+#view-modal-close:hover{color:#e8e0d0}
+#view-modal-body{padding:16px 20px;overflow-y:auto}
+.vm-badge{
+  display:inline-flex;align-items:center;gap:5px;
+  font-family:'DM Mono',monospace;font-size:0.63rem;
+  background:#1e1e30;color:#6a6580;
+  padding:3px 10px;border-radius:10px;margin-bottom:10px;
+}
+.vm-badge-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
+.vm-meta{
+  display:flex;gap:14px;margin-bottom:10px;
+  font-family:'DM Mono',monospace;font-size:0.66rem;color:#6a6580;flex-wrap:wrap;
+}
+#view-modal-desc{
+  font-size:0.86rem;line-height:1.7;color:#c0b8a8;
+  margin-bottom:14px;
+  background:#1e1e30;padding:10px 12px;
+  border-radius:5px;border:1px solid #2a2a3e;
+}
+#view-modal-media{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px;margin-bottom:8px}
+#view-modal-media img{
+  width:100%;border-radius:5px;object-fit:cover;aspect-ratio:4/3;
+  cursor:zoom-in;transition:opacity 0.15s;border:1px solid #2a2a3e;
+}
+#view-modal-media img:hover{opacity:0.8}
+#view-modal-media video{width:100%;border-radius:5px;border:1px solid #2a2a3e;grid-column:1/-1}
+.vm-vid-wrap{
+  grid-column:1/-1;
+  border:1px solid #2a2a3e;border-radius:6px;overflow:hidden;background:#0a0a12;
+  margin-bottom:2px;
+}
+.vm-vid-bar{
+  padding:5px 10px;font-family:'DM Mono',monospace;font-size:0.67rem;
+  color:#6a6580;display:flex;align-items:center;gap:7px;background:#1e1e30;
+}
+.vm-vlc-btn{
+  display:inline-flex;align-items:center;gap:6px;
+  padding:6px 12px;margin-top:4px;
+  background:none;border:1px solid #f96900;
+  border-radius:4px;color:#f96900;
+  font-family:'DM Mono',monospace;font-size:0.68rem;
+  cursor:pointer;transition:all .18s;
+}
+.vm-vlc-btn:hover{background:#f96900;color:white}
+.vm-mp4-btn{
+  display:inline-flex;align-items:center;gap:6px;
+  padding:6px 12px;margin-top:4px;
+  background:#0078d4;border:none;
+  border-radius:4px;color:#fff;
+  font-family:'DM Mono',monospace;font-size:0.68rem;
+  cursor:pointer;transition:background .18s;
+}
+.vm-mp4-btn:hover{background:#106ebe}
+
+/* ── LIGHTBOX ── */
+#lightbox{
+  display:none;
+  position:fixed;inset:0;
+  background:rgba(0,0,0,0.96);
+  z-index:2000;
+  align-items:center;
+  justify-content:center;
+  cursor:zoom-out;
+  backdrop-filter:blur(6px);
+}
+#lightbox.open{display:flex}
+#lightbox img{
+  max-width:96vw;
+  max-height:96vh;
+  object-fit:contain;
+  border-radius:4px;
+  box-shadow:0 8px 60px rgba(0,0,0,0.8);
+  cursor:default;
+  user-select:none;
+}
+#lightbox-close{
+  position:absolute;top:16px;right:20px;
+  background:none;border:none;
+  color:rgba(255,255,255,0.55);
+  font-size:2.2rem;cursor:pointer;
+  line-height:1;padding:4px 8px;
+  border-radius:4px;transition:color .15s;z-index:2001;
+}
+#lightbox-close:hover{color:#fff}
+#lightbox-caption{
+  position:absolute;bottom:18px;left:50%;transform:translateX(-50%);
+  font-family:'DM Mono',monospace;font-size:0.68rem;
+  color:rgba(255,255,255,0.45);
+  background:rgba(0,0,0,0.5);
+  padding:3px 14px;border-radius:20px;
+  white-space:nowrap;max-width:80vw;
+  overflow:hidden;text-overflow:ellipsis;
+  pointer-events:none;
+}
+#lb-prev,#lb-next{
+  position:absolute;top:50%;transform:translateY(-50%);
+  background:rgba(255,255,255,0.07);
+  border:1px solid rgba(255,255,255,0.13);
+  border-radius:50%;
+  width:44px;height:44px;
+  color:rgba(255,255,255,0.65);
+  font-size:1.2rem;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;
+  transition:all .15s;z-index:2001;
+}
+#lb-prev{left:16px}
+#lb-next{right:16px}
+#lb-prev:hover,#lb-next:hover{background:rgba(255,255,255,0.17);color:#fff}
+
+/* LOGIN */
+#login-screen{position:fixed;inset:0;background:#f0f0f0;z-index:9999;display:flex;align-items:center;justify-content:center}
+#lbox{background:#fff;border:1px solid var(--border);border-top:3px solid var(--blue);border-radius:4px;padding:24px 20px;width:285px;box-shadow:0 4px 20px rgba(0,0,0,.14)}
+#lbox h2{font-size:14px;font-weight:700;margin-bottom:3px}
+#lbox p{font-size:11px;color:var(--muted);margin-bottom:14px;font-family:'DM Mono',monospace}
+#lbox input[type=password]{width:100%;padding:6px 8px;border:1px solid var(--border);border-radius:2px;font-size:13px;outline:none;margin-bottom:9px}
+#lbox input:focus{border-color:var(--blue)}
+#lbtn{width:100%;padding:7px;background:var(--blue);border:none;border-radius:2px;color:#fff;font-size:13px;cursor:pointer;transition:background .12s}
+#lbtn:hover{background:var(--blue2)}
+#lerr{color:var(--accent);font-size:11px;margin-top:7px;text-align:center;min-height:16px}
+
+/* EDIT MODAL */
+#edit-ov{display:none;position:fixed;inset:0;background:rgba(0,0,0,.38);z-index:1100;backdrop-filter:blur(2px)}
+#edit-modal{display:none;position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:#fff;border:1px solid var(--border);border-radius:4px;box-shadow:0 8px 30px rgba(0,0,0,.2);z-index:1200;width:min(450px,92vw);max-height:90vh;flex-direction:column;overflow:hidden}
+#emhdr{background:var(--blue);padding:9px 13px;display:flex;justify-content:space-between;align-items:center}
+#emhdr h3{font-size:12px;color:#fff;font-weight:600}
+.cx{background:none;border:none;color:rgba(255,255,255,.75);font-size:16px;cursor:pointer;padding:0 4px;transition:color .1s}
+.cx:hover{color:#fff}
+#embody{padding:12px 14px;overflow-y:auto}
+#emsg{font-size:11px;min-height:14px;color:var(--muted);margin-bottom:7px;font-family:'DM Mono',monospace}
+#emsg.ok{color:var(--green)}
+#emsg.err{color:var(--accent)}
+
+.emf{display:flex;align-items:center;gap:5px;padding:3px 5px;border:1px solid var(--border2);border-radius:2px;margin-bottom:3px;font-size:11px;font-family:'DM Mono',monospace;background:#fff}
+.emf .emfn{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.emf .emfdel{background:none;border:none;cursor:pointer;color:#bbb;font-size:13px;padding:0 2px;line-height:1;transition:color .1s;flex-shrink:0}
+.emf .emfdel:hover{color:var(--accent)}
+.emf.removed{opacity:.4;text-decoration:line-through}
+#edz:hover{border-color:var(--blue);background:#f0f8ff}
+
+/* ── EMBEDDED VIDEO PLAYER (ported from viewer) ── */
+.vp-wrap{position:relative;background:#000;border-radius:0;overflow:hidden;user-select:none}
+/* video must never collapse to 0 height during seek/buffer — that shifts the modal */
+.vp-wrap video{min-height:120px}
+.vp-controls{background:#111;padding:5px 7px 6px;display:flex;flex-direction:column;gap:4px}
+.vp-progress-row{display:flex;align-items:center;gap:6px}
+.vp-scrubber{flex:1;-webkit-appearance:none;appearance:none;height:3px;border-radius:2px;
+  background:linear-gradient(to right,#d4a853 0%,#333 0%);outline:none;cursor:pointer}
+.vp-scrubber::-webkit-slider-thumb{-webkit-appearance:none;width:12px;height:12px;
+  border-radius:50%;background:#d4a853;border:1px solid #111;cursor:pointer}
+.vp-scrubber::-moz-range-thumb{width:12px;height:12px;border-radius:50%;
+  background:#d4a853;border:1px solid #111;cursor:pointer}
+.vp-time{font-family:'DM Mono',monospace;font-size:10px;color:#888;white-space:nowrap;min-width:90px;text-align:right}
+.vp-btn-row{display:flex;align-items:center;gap:4px}
+.vp-btn{background:none;border:none;color:#aaa;font-size:14px;cursor:pointer;
+  padding:2px 5px;border-radius:2px;line-height:1;transition:color .1s}
+.vp-btn:hover{color:#fff}
+.vp-vol{-webkit-appearance:none;appearance:none;width:55px;height:3px;border-radius:2px;
+  background:linear-gradient(to right,#888 0%,#333 0%);outline:none;cursor:pointer}
+.vp-vol::-webkit-slider-thumb{-webkit-appearance:none;width:10px;height:10px;
+  border-radius:50%;background:#aaa;cursor:pointer}
+.vp-status{flex:1;font-family:'DM Mono',monospace;font-size:9.5px;color:#888;
+  padding:0 4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* fullscreen */
+.vp-wrap.vp-fullscreen{position:fixed!important;inset:0!important;z-index:9999!important;
+  width:100vw!important;height:100vh!important;border-radius:0!important;background:#000}
+.vp-wrap.vp-fullscreen video{max-height:calc(100vh - 56px)!important;width:100%!important}
+.vp-wrap.vp-fs-idle .vp-controls{opacity:0;pointer-events:none}
+.vp-wrap.vp-fullscreen .vp-controls{transition:opacity .25s}
+
+::-webkit-scrollbar{width:7px;height:7px}
+::-webkit-scrollbar-track{background:var(--bg)}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:4px}
+::-webkit-scrollbar-thumb:hover{background:#aaa}
+</style>
+</head>
+<body>
+
+<!-- TITLE BAR -->
+<div id="titlebar">
+  <span style="font-size:14px">🗺</span>
+  <span id="tt">Travel Archive — Admin</span>
+  <div id="conn-badge">
+    <div class="cdot checking" id="cdot"></div>
+    <span id="clbl">Connecting…</span>
+  </div>
+  <button id="btn-logout">⎋ Logout</button>
+</div>
+
+<!-- RIBBON -->
+<div id="ribbon">
+  <div class="rg">
+    <button class="rb active" id="rb-add" data-tip="Open the Add Entry form">
+      <span class="ri">➕</span>Add Entry
+    </button>
+    <span class="rg-lbl">New</span>
+  </div>
+  <div class="rg">
+    <button class="rb" id="rb-scan" data-tip="Scan a folder of video files and import them">
+      <span class="ri">📂</span>Import Folder
+    </button>
+    <span class="rg-lbl">Import</span>
+  </div>
+  <div class="rgc">
+    <button class="rbs" id="btn-fit" data-tip="Zoom the map to fit all visible entries">⊡  Fit Map to Entries</button>
+    <button class="rbs" id="btn-clr" data-tip="Reset the Add form and remove the pending map pin">✕  Clear Add Form</button>
+    <button class="rbs" id="btn-ref" data-tip="Re-load all data from the server">↺  Refresh Data</button>
+    <span class="rg-lbl">Tools</span>
+  </div>
+  <div class="rgc">
+    <button class="rbs" onclick="window.open('/','_blank')" data-tip="Open the public viewer in a new tab">👁  View Public Site</button>
+    <button class="rbs" id="btn-tnav" data-tip="Show or hide the left Collections panel">⬛  Toggle Nav Panel</button>
+    <span class="rg-lbl">View</span>
+  </div>
+</div>
+
+<!-- ADDRESS BAR -->
+<div id="addrbar">
+  <button class="ab" title="Back">◄</button>
+  <button class="ab" title="Forward">►</button>
+  <input id="addr-path" value="Travel Archive / All Collections" readonly>
+  <div id="sw"><input id="addr-search" placeholder="Search entries…"></div>
+</div>
+
+<!-- BODY -->
+<div id="body">
+
+  <!-- NAV -->
+  <div id="nav">
+    <div id="nav-hdr">Collections</div>
+    <div id="nav-tree"></div>
+    <div id="nav-new">
+      <div style="font-size:9.5px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:2px">New Collection</div>
+      <div class="nir">
+        <input type="text" id="inp-fn" placeholder="e.g. Road Trip 2024">
+        <input type="color" id="inp-fc" value="#0078d4">
+      </div>
+      <div class="nir" style="margin-top:3px"><button id="btn-addfl" style="width:100%">+ Create</button></div>
+    </div>
+  </div>
+
+  <!-- LEFT SPLITTER -->
+  <div class="spl" id="spl-l"></div>
+
+  <!-- CENTRE -->
+  <div id="centre">
+    <!-- File list -->
+    <div id="files" style="height:40%">
+      <div id="col-heads">
+        <span class="ch cn">Name</span>
+        <span class="ch cy">Year</span>
+        <span class="ch cl">Location</span>
+        <span class="ch cc">Collection</span>
+        <span class="ch cf">Files</span>
+      </div>
+      <div id="file-list"></div>
+    </div>
+    <!-- H splitter -->
+    <div id="hspl"></div>
+    <!-- Map -->
+    <div id="map-section">
+      <div id="map-tip-bar">
+        <span id="mcoord">📍 Click map to set coordinates for a new entry</span>
+      </div>
+      <div id="map">
+        <div id="map-pin-tip"></div>
+      </div>
+    </div>
+    <!-- Statusbar -->
+    <div id="statusbar"><span id="stxt">Ready</span></div>
+  </div>
+
+  <!-- RIGHT SPLITTER -->
+  <div class="spl" id="spl-r"></div>
+
+  <!-- DETAIL -->
+  <div id="detail">
+    <div id="dtabs">
+      <div class="dt active" data-pane="add">Add / Edit</div>
+      <div class="dt" data-pane="props">Properties</div>
+      <div class="dt" data-pane="scan">Import</div>
+    </div>
+    <div id="dbody">
+
+      <!-- ADD -->
+      <div class="dp show" id="pane-add">
+        <div class="fld"><label>Collection</label><select id="inp-folder"></select></div>
+        <div class="fld"><label>Name</label><input type="text" id="inp-name" placeholder="e.g. Weekend in Vienna"></div>
+        <div class="crow">
+          <div class="fld"><label>Latitude</label><input type="text" id="inp-lat" placeholder="48.000"></div>
+          <div class="fld"><label>Longitude</label><input type="text" id="inp-lng" placeholder="17.000"></div>
+        </div>
+        <p class="chint">📍 Click anywhere on the map to fill coords automatically</p>
+        <div style="display:flex;gap:6px">
+          <div class="fld" style="flex:0 0 72px"><label>Year</label><input type="text" id="inp-year" placeholder="2024" maxlength="4"></div>
+          <div class="fld" style="flex:1"><label>Date (optional)</label><input type="date" id="inp-date"></div>
+        </div>
+        <div class="fld"><label>Description</label><textarea id="inp-desc" placeholder="Story, context, notes…"></textarea></div>
+        <div class="fld">
+          <label>Attach Videos / Photos</label>
+          <div id="dz"><span>📁 Drop files here or click to browse</span><input type="file" id="inp-media" multiple accept="image/*,video/*"></div>
+          <div id="dzlist"></div>
+        </div>
+        <button class="btp" id="btn-submit">💾 Save Entry</button>
+        <div id="fmsg"></div>
+      </div>
+
+      <!-- PROPS -->
+      <div class="dp" id="pane-props">
+        <div id="pe" class="empty"><div class="ei">📍</div><div>Select an entry to view its details</div></div>
+        <div id="pc" style="display:none">
+          <div class="pg"><div class="pl">Name</div><div class="pv" id="pp-name"></div></div>
+          <div class="pg"><div class="pl">Year</div><div class="pv mo" id="pp-year"></div></div>
+          <div class="pg"><div class="pl">Date</div><div class="pv mo" id="pp-date"></div></div>
+          <div class="pg"><div class="pl">Coordinates</div><div class="pv mo" id="pp-coords"></div></div>
+          <div class="pg"><div class="pl">Collection</div><div class="pv" id="pp-folder"></div></div>
+          <div class="pg"><div class="pl">Description</div><div class="pv" id="pp-desc" style="line-height:1.5"></div></div>
+          <div class="pg"><div class="pl">Files</div><div id="pp-media"></div></div>
+          <div class="brow">
+            <button class="btp" id="pp-open">👁 Open Viewer</button>
+            <button class="btp" id="pp-edit" style="background:var(--green)">✎ Edit</button>
+          </div>
+          <button class="bts" id="pp-del" style="color:var(--accent)!important;border-color:var(--accent)!important;margin-top:5px;width:100%">✕ Delete Entry</button>
+        </div>
+      </div>
+
+      <!-- IMPORT / FILE BROWSER -->
+      <div class="dp" id="pane-scan">
+        <div id="fb-toolbar">
+          <button id="fb-btn-up" title="Go up one folder">⬆ Up</button>
+          <button id="fb-btn-root" title="Go to server root / drives">⌂ Root</button>
+          <input id="fb-path-inp" placeholder="Paste path and press Enter…" title="Type or paste a path and press Enter">
+          <button id="fb-btn-go">Go</button>
+        </div>
+        <div id="fb-breadcrumb">Browse server filesystem to find videos</div>
+        <input id="fb-filter" placeholder="🔍 Filter files in this folder…">
+        <div id="fb-list"><div id="fb-empty">Click ⌂ Root to start browsing</div></div>
+        <div id="fb-status"></div>
+        <div id="relink-wrap">
+          <div id="relink-hdr">🔁 Relink All — bulk path replace</div>
+          <div id="relink-body">
+            <label>Old path prefix (find)</label>
+            <input type="text" id="relink-old" placeholder="/old/path/to/films">
+            <label>New path prefix (replace with)</label>
+            <input type="text" id="relink-new" placeholder="/new/path/to/films">
+            <button id="btn-relink-all">Apply to all POIs</button>
+            <div id="relink-out"></div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+</div>
+
+<!-- LOGIN -->
+<div id="login-screen">
+  <div id="lbox">
+    <h2>🗺 Travel Archive</h2>
+    <p>ADMIN ACCESS — ENTER PASSWORD</p>
+    <input type="password" id="lpw" placeholder="Password" autocomplete="current-password">
+    <button id="lbtn">Enter</button>
+    <div id="lerr"></div>
+  </div>
+</div>
+
+<!-- EDIT MODAL -->
+<div id="edit-ov"></div>
+<div id="edit-modal">
+  <div id="emhdr"><h3>✎ Edit Entry</h3><button class="cx" id="close-edit">×</button></div>
+  <div id="embody">
+    <div id="emsg"></div>
+    <input type="hidden" id="eid">
+    <div class="fld"><label>Name</label><input type="text" id="en"></div>
+    <div class="fld"><label>Collection</label><select id="ef"></select></div>
+    <div class="crow">
+      <div class="fld"><label>Latitude</label><input type="text" id="elat"></div>
+      <div class="fld"><label>Longitude</label><input type="text" id="elng"></div>
+    </div>
+    <div style="display:flex;gap:6px">
+      <div class="fld" style="flex:0 0 72px"><label>Year</label><input type="text" id="eyr" maxlength="4"></div>
+      <div class="fld" style="flex:1"><label>Date</label><input type="date" id="edt"></div>
+    </div>
+    <div class="fld"><label>Description</label><textarea id="edesc" style="min-height:60px"></textarea></div>
+    <div class="fld">
+      <label>Files</label>
+      <div id="emedia-list" style="margin-bottom:5px"></div>
+      <div id="edz" style="border:2px dashed var(--border);border-radius:2px;padding:6px;text-align:center;cursor:pointer;background:var(--win2);transition:all .15s">
+        <span style="font-size:11px;color:var(--muted)">📁 Drop or click to add files</span>
+        <input type="file" id="einp-media" multiple accept="image/*,video/*" style="display:none">
+      </div>
+      <div id="edzlist" style="font-size:10px;color:var(--muted);max-height:50px;overflow-y:auto;margin-top:2px"></div>
+    </div>
+    <button class="btp" id="esave">💾 Save Changes</button>
+  </div>
+</div>
+
+<!-- POI VIEWER MODAL -->
+<div id="view-ov"></div>
+<div id="view-modal">
+  <div id="view-modal-hdr">
+    <span id="view-modal-name"></span>
+    <button id="view-modal-close">×</button>
+  </div>
+  <div id="view-modal-body">
+    <div class="vm-badge">
+      <span class="vm-badge-dot" id="vm-dot"></span>
+      <span id="vm-folder"></span>
+    </div>
+    <div class="vm-meta">
+      <span id="vm-date"></span>
+      <span id="vm-coords"></span>
+    </div>
+    <div id="view-modal-desc"></div>
+    <div id="view-modal-media"></div>
+  </div>
+</div>
+
+<!-- RELINK PICKER MODAL -->
+<div id="rp-ov"></div>
+<div id="rp-modal">
+  <div id="rp-hdr"><span>↗ Pick new file path</span><button class="cx" id="rp-close">×</button></div>
+  <div id="rp-body">
+    <div id="rp-toolbar">
+      <button id="rp-up">⬆ Up</button>
+      <button id="rp-root">⌂ Root</button>
+      <input id="rp-path-inp" placeholder="Paste path…">
+      <button id="rp-go">Go</button>
+    </div>
+    <div id="rp-bc"></div>
+    <div id="rp-list"></div>
+    <div id="rp-status"></div>
+  </div>
+</div>
+
+<!-- LIGHTBOX -->
+<div id="lightbox">
+  <button id="lightbox-close">×</button>
+  <button id="lb-prev">&#8592;</button>
+  <img id="lightbox-img" src="" alt="">
+  <button id="lb-next">&#8594;</button>
+  <div id="lightbox-caption"></div>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+(function(){
+'use strict';
+
+// ── Lightbox ─────────────────────────────────────────────
+var lbImages = [];
+var lbIdx = 0;
+
+function openLightbox(images, startIdx) {
+  lbImages = images;
+  lbIdx = startIdx || 0;
+  showLbImg();
+  document.getElementById('lightbox').classList.add('open');
+}
+
+function closeLightbox() {
+  document.getElementById('lightbox').classList.remove('open');
+  lbImages = [];
+}
+
+function showLbImg() {
+  var item = lbImages[lbIdx];
+  if (!item) return;
+  document.getElementById('lightbox-img').src = item.src;
+  document.getElementById('lightbox-caption').textContent = item.caption || '';
+  document.getElementById('lb-prev').style.display = lbImages.length > 1 ? 'flex' : 'none';
+  document.getElementById('lb-next').style.display = lbImages.length > 1 ? 'flex' : 'none';
+}
+
+document.getElementById('lightbox').addEventListener('click', function(e) {
+  if (e.target === this) closeLightbox();
+});
+document.getElementById('lightbox-close').addEventListener('click', closeLightbox);
+document.getElementById('lb-prev').addEventListener('click', function(e) {
+  e.stopPropagation();
+  lbIdx = (lbIdx - 1 + lbImages.length) % lbImages.length;
+  showLbImg();
+});
+document.getElementById('lb-next').addEventListener('click', function(e) {
+  e.stopPropagation();
+  lbIdx = (lbIdx + 1) % lbImages.length;
+  showLbImg();
+});
+document.addEventListener('keydown', function(e) {
+  var lb = document.getElementById('lightbox');
+  if (!lb.classList.contains('open')) return;
+  if (e.key === 'Escape') { e.stopPropagation(); closeLightbox(); }
+  if (e.key === 'ArrowLeft') { lbIdx = (lbIdx - 1 + lbImages.length) % lbImages.length; showLbImg(); }
+  if (e.key === 'ArrowRight') { lbIdx = (lbIdx + 1) % lbImages.length; showLbImg(); }
+});
+
+// ── Local access detection ────────────────────────────────
+var isLocalAccess = false;
+(function(){
+  fetch('/api/is-local').then(function(r){return r.json();}).then(function(d){
+    isLocalAccess = d.local === true;
+  }).catch(function(){});
+})();
+
+// ── Active modal players ──────────────────────────────────
+var _viewPlayers = [];
+
+// ══════════════ CUSTOM VIDEO PLAYER ══════════════
+function makeVideoPlayer(opts) {
+  var streamSrc = opts.streamSrc;
+  var directSrc = opts.directSrc;
+  var isNative  = opts.isNative;
+  var b64key    = opts.b64key;
+  var maxH      = opts.maxHeight || '360px';
+
+  var totalDur  = 0;
+  var currentPos = 0;   // seconds — stream-mode only; native uses vid.currentTime
+  var posTimer  = null;
+  var destroyed = false;
+  var seekPendingNative = false; // guard against double-seek on native
+
+  // ── DOM ──────────────────────────────────────────────────
+  var el = document.createElement('div');
+  el.className = 'vp-wrap';
+
+  var vid = document.createElement('video');
+  vid.preload = 'metadata';
+  vid.style.cssText = 'width:100%;display:block;max-height:' + maxH + ';outline:none;background:#000';
+  el.appendChild(vid);
+
+  // ── Lock height once we know the video dimensions ────────────────────────
+  // This prevents the modal from jumping when the video element collapses to
+  // 0px during seek/buffer restarts (Chrome zeroes readyState momentarily).
+  var _heightLocked = false;
+  function lockHeight() {
+    if (_heightLocked) return;
+    var h = vid.offsetHeight;
+    if (h > 20) {
+      vid.style.minHeight = h + 'px';
+      el.style.minHeight  = (h + 56) + 'px'; // +56 for controls bar
+      _heightLocked = true;
+    }
+  }
+  vid.addEventListener('loadedmetadata', lockHeight);
+  vid.addEventListener('playing',        lockHeight);
+
+  var controls = document.createElement('div');
+  controls.className = 'vp-controls';
+  el.appendChild(controls);
+
+  var progressRow = document.createElement('div');
+  progressRow.className = 'vp-progress-row';
+  var scrubber = document.createElement('input');
+  scrubber.type = 'range'; scrubber.className = 'vp-scrubber';
+  scrubber.min = 0; scrubber.max = 100; scrubber.value = 0; scrubber.step = 0.1;
+  var timeEl = document.createElement('div');
+  timeEl.className = 'vp-time';
+  timeEl.textContent = '0:00 / --:--';
+  progressRow.appendChild(scrubber);
+  progressRow.appendChild(timeEl);
+  controls.appendChild(progressRow);
+
+  var btnRow = document.createElement('div');
+  btnRow.className = 'vp-btn-row';
+  function mkBtn(label, title) {
+    var b = document.createElement('button');
+    b.className = 'vp-btn'; b.title = title; b.innerHTML = label; return b;
+  }
+  var btnPlay  = mkBtn('▶', 'Play / Pause');
+  var btnRew   = mkBtn('⏪', 'Back 10s');
+  var btnFwd   = mkBtn('⏩', 'Forward 10s');
+  var btnMute  = mkBtn('🔊', 'Mute');
+  var volSlider = document.createElement('input');
+  volSlider.type = 'range'; volSlider.className = 'vp-vol';
+  volSlider.min = 0; volSlider.max = 1; volSlider.step = 0.05; volSlider.value = 1;
+  var statusEl = document.createElement('div');
+  statusEl.className = 'vp-status';
+  var btnFs = mkBtn('⛶', 'Fullscreen');
+
+  btnRow.appendChild(btnPlay); btnRow.appendChild(btnRew); btnRow.appendChild(btnFwd);
+  btnRow.appendChild(btnMute); btnRow.appendChild(volSlider);
+  btnRow.appendChild(statusEl); btnRow.appendChild(btnFs);
+  controls.appendChild(btnRow);
+
+  // ── Helpers ──────────────────────────────────────────────
+  function pad(n) { return n < 10 ? '0' + n : String(n); }
+  function fmtTime(s) {
+    if (!isFinite(s) || s < 0) s = 0;
+    var h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), sec = Math.floor(s % 60);
+    return h > 0 ? h + ':' + pad(m) + ':' + pad(sec) : m + ':' + pad(sec);
+  }
+  function getDur() { return totalDur || (isNative ? (vid.duration || 0) : 0); }
+  function getPos() { return isNative ? vid.currentTime : currentPos; }
+
+  function updateUI(pos) {
+    if (scrubActive) return; // don't fight the user while dragging
+    var dur = getDur();
+    timeEl.textContent = fmtTime(pos) + ' / ' + (dur > 0 ? fmtTime(dur) : '--:--');
+    var pct = dur > 0 ? Math.min(100, pos / dur * 100) : 0;
+    scrubber.value = pct;
+    scrubber.style.backgroundSize = pct + '% 100%';
+  }
+
+  function setStatus(txt, color) {
+    statusEl.textContent = txt;
+    statusEl.style.color = color || '#888';
+  }
+
+  // ── Position timer (stream-mode only) ───────────────────
+  function startPosTimer() {
+    stopPosTimer();
+    posTimer = setInterval(function() {
+      if (destroyed || vid.paused || vid.ended) return;
+      currentPos += 0.25;
+      var dur = getDur();
+      if (dur > 0 && currentPos > dur) currentPos = dur;
+      updateUI(currentPos);
+    }, 250);
+  }
+  function stopPosTimer() {
+    if (posTimer) { clearInterval(posTimer); posTimer = null; }
+  }
+
+  // ── Load / seek ─────────────────────────────────────────
+  // seekTo: seconds (use undefined/null for "just start from beginning without force-play")
+  function doSeekStream(seekTo) {
+    seekTo = (seekTo > 0) ? seekTo : 0;
+    currentPos = seekTo;
+    stopPosTimer();
+    // Lock height before wiping src so the modal/layout doesn't jump
+    var curH = vid.offsetHeight;
+    if (curH > 20) {
+      vid.style.minHeight = curH + 'px';
+      el.style.minHeight  = (curH + 56) + 'px';
+      _heightLocked = true;
+    }
+    var src = streamSrc + (seekTo > 0 ? '?seek=' + seekTo.toFixed(1) : '');
+    vid.src = src;
+    vid.load();
+    setStatus('Buffering…', '#f96900');
+    vid.play().catch(function(){});
+    // posTimer starts once actually playing (not just buffering)
+    vid.addEventListener('playing', function onPlay() {
+      vid.removeEventListener('playing', onPlay);
+      if (!destroyed) { startPosTimer(); }
+    });
+  }
+
+  function doSeekNative(seekTo) {
+    seekTo = (seekTo > 0) ? seekTo : 0;
+    var dur = getDur();
+    if (dur > 0) seekTo = Math.min(seekTo, dur);
+
+    // Lock height before any src reset
+    var curH = vid.offsetHeight;
+    if (curH > 20) {
+      vid.style.minHeight = curH + 'px';
+      el.style.minHeight  = (curH + 56) + 'px';
+      _heightLocked = true;
+    }
+
+    if (!vid.src || vid.src.split('?')[0].indexOf(encodeURIComponent(directSrc.split('/').pop())) === -1) {
+      // src not yet set — set it and wait for metadata
+      vid.src = directSrc;
+      vid.load();
+    }
+
+    if (seekTo === 0) {
+      // No seek needed — just play from start
+      vid.currentTime = 0;
+      vid.play().catch(function(){});
+      return;
+    }
+
+    // Need to seek — wait for enough data
+    if (vid.readyState >= 1) {
+      // Metadata already loaded
+      vid.currentTime = seekTo;
+      vid.play().catch(function(){});
+    } else {
+      seekPendingNative = true;
+      vid.addEventListener('loadedmetadata', function onMeta() {
+        vid.removeEventListener('loadedmetadata', onMeta);
+        seekPendingNative = false;
+        vid.currentTime = seekTo;
+        vid.play().catch(function(){});
+      });
+    }
+  }
+
+  // Public seek — called by skip buttons and scrubber
+  function seekTo(pos) {
+    if (destroyed) return;
+    pos = Math.max(0, pos);
+    var dur = getDur();
+    if (dur > 0) pos = Math.min(pos, dur);
+    if (isNative) {
+      doSeekNative(pos);
+    } else {
+      doSeekStream(pos);
+    }
+  }
+
+  // ── Initial load — set src, don't auto-play ──────────────
+  function initialLoad() {
+    if (isNative) {
+      vid.src = directSrc;
+      vid.load();
+      // Don't auto-play; user presses play
+    } else {
+      vid.src = streamSrc;
+      vid.load();
+      setStatus('Ready — press ▶ to play', '#888');
+    }
+  }
+
+  // ── Duration fetch ───────────────────────────────────────
+  function fetchDuration() {
+    fetch('/duration/' + b64key)
+      .then(function(r) { return r.json(); })
+      .then(function(d) {
+        if (d.duration && d.duration > 0) {
+          totalDur = d.duration;
+          updateUI(getPos());
+        }
+      })
+      .catch(function() {});
+  }
+
+  // ── Play / Pause button ──────────────────────────────────
+  btnPlay.onclick = function() {
+    if (vid.paused || vid.ended) {
+      if (isNative) {
+        if (!vid.src) { vid.src = directSrc; vid.load(); }
+        vid.play().catch(function(){});
+      } else {
+        // If never started or ended, restart stream from currentPos
+        if (!vid.src || vid.ended) {
+          doSeekStream(currentPos);
+        } else {
+          vid.play().catch(function(){});
+        }
+      }
+    } else {
+      vid.pause();
+    }
+  };
+
+  vid.addEventListener('play',  function() { btnPlay.innerHTML = '⏸'; });
+  vid.addEventListener('pause', function() { btnPlay.innerHTML = '▶'; if (!isNative) stopPosTimer(); });
+  vid.addEventListener('ended', function() {
+    btnPlay.innerHTML = '▶';
+    stopPosTimer();
+    if (isNative) updateUI(vid.duration || totalDur);
+    else { currentPos = totalDur || currentPos; updateUI(currentPos); }
+  });
+
+  // Native: drive scrubber from timeupdate
+  if (isNative) {
+    vid.addEventListener('loadedmetadata', function() {
+      if (!totalDur) totalDur = vid.duration || 0;
+      updateUI(vid.currentTime);
+    });
+    vid.addEventListener('timeupdate', function() {
+      updateUI(vid.currentTime);
+    });
+  }
+
+  vid.addEventListener('playing', function() {
+    if (isNative) { setStatus('', ''); }
+    else          { setStatus('▶ Streaming', '#27ae60'); }
+  });
+  vid.addEventListener('waiting', function() {
+    if (!destroyed) setStatus('Buffering…', '#f96900');
+  });
+  vid.addEventListener('error', function() {
+    if (destroyed) return;
+    setStatus('Error — ffmpeg not installed?', '#e74c3c');
+    stopPosTimer();
+  });
+
+  // ── Scrubber ─────────────────────────────────────────────
+  var scrubActive = false;
+
+  // Use pointerdown/up so we don't need document-level listeners per player
+  scrubber.addEventListener('pointerdown', function() {
+    scrubActive = true;
+    scrubber.setPointerCapture(event.pointerId);
+  });
+  scrubber.addEventListener('pointerup', function() {
+    if (!scrubActive) return;
+    scrubActive = false;
+    var dur = getDur();
+    if (!dur) return;
+    var pos = parseFloat(scrubber.value) / 100 * dur;
+    seekTo(pos);
+  });
+  scrubber.addEventListener('pointermove', function() {
+    if (!scrubActive) return;
+    var dur = getDur();
+    if (!dur) return;
+    var pos = parseFloat(scrubber.value) / 100 * dur;
+    timeEl.textContent = fmtTime(pos) + ' / ' + fmtTime(dur);
+    scrubber.style.backgroundSize = scrubber.value + '% 100%';
+  });
+
+  // ── Skip buttons ─────────────────────────────────────────
+  btnRew.onclick = function() {
+    seekTo(Math.max(0, getPos() - 10));
+  };
+  btnFwd.onclick = function() {
+    var dur = getDur();
+    seekTo(Math.min(dur > 0 ? dur : getPos() + 10, getPos() + 10));
+  };
+
+  // ── Mute / volume ────────────────────────────────────────
+  btnMute.onclick = function() {
+    vid.muted = !vid.muted;
+    btnMute.innerHTML = vid.muted ? '🔇' : '🔊';
+  };
+  volSlider.addEventListener('input', function() {
+    vid.volume = parseFloat(volSlider.value);
+    vid.muted = (vid.volume === 0);
+    btnMute.innerHTML = vid.muted ? '🔇' : '🔊';
+    volSlider.style.backgroundSize = (vid.volume * 100) + '% 100%';
+  });
+
+  // ── Fullscreen ───────────────────────────────────────────
+  // Teleport el to <body> to escape the modal's transform:translate()
+  // which creates a stacking context that breaks position:fixed children.
+  var fsActive = false, fsPlaceholder = null;
+  function exitFs() {
+    el.classList.remove('vp-fullscreen', 'vp-fs-idle');
+    clearTimeout(el._fsIdleTimer);
+    if (fsPlaceholder && fsPlaceholder.parentNode) {
+      fsPlaceholder.parentNode.insertBefore(el, fsPlaceholder);
+      fsPlaceholder.remove();
+      fsPlaceholder = null;
+    }
+    btnFs.innerHTML = '⛶'; fsActive = false;
+    if (document.fullscreenElement || document.webkitFullscreenElement)
+      (document.exitFullscreen || document.webkitExitFullscreen || function(){}).call(document);
+  }
+  btnFs.onclick = function() {
+    if (!fsActive) {
+      // Lock height so modal doesn't collapse while el is teleported away
+      var elH = el.offsetHeight;
+      if (elH > 0) el.style.minHeight = elH + 'px';
+      // Teleport el to body — escapes modal's transform stacking context
+      fsPlaceholder = document.createElement('div');
+      fsPlaceholder.style.cssText = 'display:block;width:100%;height:' + elH + 'px;';
+      el.parentNode.insertBefore(fsPlaceholder, el);
+      document.body.appendChild(el);
+      el.classList.add('vp-fullscreen');
+      btnFs.innerHTML = '✕'; fsActive = true;
+      var req = el.requestFullscreen || el.webkitRequestFullscreen;
+      if (req) req.call(el);
+      function resetIdle() {
+        el.classList.remove('vp-fs-idle'); clearTimeout(el._fsIdleTimer);
+        el._fsIdleTimer = setTimeout(function() { if (fsActive) el.classList.add('vp-fs-idle'); }, 2500);
+      }
+      el.addEventListener('mousemove', resetIdle);
+      el.addEventListener('click', resetIdle);
+      el._resetIdle = resetIdle; resetIdle();
+    } else {
+      if (el._resetIdle) {
+        el.removeEventListener('mousemove', el._resetIdle);
+        el.removeEventListener('click', el._resetIdle);
+      }
+      exitFs();
+    }
+  };
+  document.addEventListener('fullscreenchange', function onFSC() {
+    if (!fsActive) return;
+    if (!document.fullscreenElement && !document.webkitFullscreenElement) {
+      if (el._resetIdle) {
+        el.removeEventListener('mousemove', el._resetIdle);
+        el.removeEventListener('click', el._resetIdle);
+      }
+      exitFs();
+    }
+  });
+
+  // ── Destroy ──────────────────────────────────────────────
+  function destroy() {
+    if (destroyed) return; destroyed = true;
+    stopPosTimer();
+    if (fsActive) {
+      el.classList.remove('vp-fullscreen', 'vp-fs-idle');
+      clearTimeout(el._fsIdleTimer);
+      // Restore el to DOM if teleported
+      if (fsPlaceholder && fsPlaceholder.parentNode) {
+        fsPlaceholder.parentNode.insertBefore(el, fsPlaceholder);
+        fsPlaceholder.remove();
+        fsPlaceholder = null;
+      }
+      fsActive = false;
+    }
+    vid.pause(); vid.src = ''; vid.load();
+  }
+
+  // ── Init ─────────────────────────────────────────────────
+  initialLoad();
+  fetchDuration();
+
+  return { el: el, vid: vid, statusEl: statusEl, destroy: destroy };
+}
+// ═════════════════════════════════════════════════════════
+
+// ── POI Viewer Modal ──────────────────────────────────────
+function openViewModal(poi) {
+  document.getElementById('view-modal-name').textContent = poi.name;
+  document.getElementById('vm-date').textContent = 'Date: ' + (poi.date || '—');
+  document.getElementById('vm-coords').textContent = poi.lat.toFixed(5) + ', ' + poi.lng.toFixed(5);
+  document.getElementById('view-modal-desc').textContent = poi.description || '';
+
+  var color = fColor(poi.folder_id);
+  document.getElementById('vm-dot').style.background = color;
+  document.getElementById('vm-folder').textContent = fName(poi.folder_id);
+
+  var mediaDiv = document.getElementById('view-modal-media');
+  mediaDiv.innerHTML = '';
+
+  // Destroy any lingering players from previous modal open
+  _viewPlayers.forEach(function(p){ try { p.destroy(); } catch(e){} });
+  _viewPlayers = [];
+
+  var NATIVE_EXTS = ['.mp4','.webm','.ogg','.ogv','.m4v'];
+
+  var allImages = (poi.media||[]).filter(function(m){
+    return (m.type||'').toLowerCase().startsWith('image/');
+  });
+
+  (poi.media||[]).forEach(function(item) {
+    var type = (item.type||'').toLowerCase();
+    var isImage = type.startsWith('image/');
+    var ext = (item.name||'').toLowerCase().match(/\.[^.]+$/);
+    ext = ext ? ext[0] : '';
+
+    if (isImage) {
+      var imgIdx = allImages.indexOf(item);
+      var img = document.createElement('img');
+      img.src = item.url; img.alt = item.name; img.loading = 'lazy';
+      img.title = 'Click to view full size (' + item.name + ')';
+      img.onclick = function() {
+        openLightbox(allImages.map(function(m){ return {src: m.url, caption: m.name}; }), imgIdx);
+      };
+      mediaDiv.appendChild(img);
+      return;
+    }
+
+    if (!item.url) {
+      var miss = document.createElement('div');
+      miss.className = 'vm-vid-wrap';
+      miss.style.padding = '10px 14px';
+      miss.style.color = '#6a6580';
+      miss.style.fontSize = '0.72rem';
+      miss.textContent = '⚠ ' + esc(item.name) + ' — file URL missing';
+      mediaDiv.appendChild(miss);
+      return;
+    }
+
+    // ── Video wrapper ──
+    var wrap = document.createElement('div');
+    wrap.className = 'vm-vid-wrap';
+    var bar = document.createElement('div');
+    bar.className = 'vm-vid-bar';
+    bar.innerHTML = '🎬 <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + esc(item.name) + '</span>'
+      + (item.local_path ? '<span style="color:#27ae60;font-size:9px">LINKED</span>' : '')
+      + (item.transcoded_from ? '<span style="color:#7eb8f7;font-size:9px">MP4</span>' : '')
+      + '<span style="color:#555;font-size:9px">' + ext.replace('.','').toUpperCase() + '</span>';
+    wrap.appendChild(bar);
+
+    // Build stream key + b64
+    var streamKey = item.local_path || item.filename || item.url.replace('/media/','');
+    // base64url-encode safely — btoa() breaks on non-ASCII paths
+    var b64key = btoa(unescape(encodeURIComponent(streamKey))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=/g,'');
+    var streamSrc = '/stream/' + b64key;
+    var isNative = NATIVE_EXTS.some(function(e){ return ext === e; });
+    // For linked files item.url is a /stream/… URL without Range support.
+    // Use streamSrc so the server resolves the absolute path correctly for range requests.
+    var directSrc = item.local_path ? streamSrc : item.url;
+
+    // ── Custom player (works for ALL formats — ffmpeg streams non-native) ──
+    var player = makeVideoPlayer({
+      streamSrc: streamSrc,
+      directSrc: directSrc,
+      isNative:  isNative,
+      b64key:    b64key,
+      maxHeight: '350px',
+    });
+    _viewPlayers.push(player);
+    wrap.appendChild(player.el);
+
+    // Action buttons row
+    var btns = document.createElement('div');
+    btns.style.cssText = 'display:flex;gap:8px;padding:6px 10px 10px;flex-wrap:wrap;align-items:center;background:#0d0d18';
+
+    // Format badge
+    var badge = document.createElement('span');
+    badge.style.cssText = 'font-family:"DM Mono",monospace;font-size:0.6rem;padding:2px 7px;border:1px solid;border-radius:3px;';
+    if (isNative) {
+      badge.style.cssText += 'border-color:rgba(71,180,255,.35);color:#47b4ff;';
+      badge.textContent = '⚡ Native'; badge.title = 'Direct range streaming — seekable';
+    } else {
+      badge.style.cssText += 'border-color:rgba(249,105,0,.35);color:#f96900;';
+      badge.textContent = '📡 Server stream'; badge.title = 'Transcoded via ffmpeg — server must have ffmpeg installed';
+    }
+    btns.appendChild(badge);
+
+    // Copy URL button
+    var copyBtn = document.createElement('button');
+    copyBtn.className = 'vm-vlc-btn';
+    copyBtn.style.fontSize = '0.63rem';
+    copyBtn.textContent = '📋 Copy URL';
+    copyBtn.onclick = function() {
+      var url = window.location.origin + streamSrc;
+      navigator.clipboard.writeText(url).then(function(){
+        copyBtn.textContent = '✓ Copied!';
+        setTimeout(function(){ copyBtn.textContent = '📋 Copy URL'; }, 2000);
+      }).catch(function(){ window.prompt('Stream URL:', url); });
+    };
+    btns.appendChild(copyBtn);
+
+    // Server-side VLC launch (localhost only)
+    if (isLocalAccess) {
+      var vlcBtn = document.createElement('button');
+      vlcBtn.className = 'vm-vlc-btn';
+      vlcBtn.textContent = '▶ Open in VLC';
+      vlcBtn.onclick = async function() {
+        vlcBtn.disabled = true; vlcBtn.textContent = '▶ Launching…';
+        try {
+          var res = await fetch('/api/play', {method:'POST', headers:{'Content-Type':'application/json'},
+            body: JSON.stringify({local_path: item.local_path||'', filename: item.filename||''})});
+          var d = await res.json();
+          if (!res.ok) throw new Error(d.error || 'HTTP ' + res.status);
+          vlcBtn.textContent = '▶ VLC opened ✓';
+          setTimeout(function(){ vlcBtn.textContent = '▶ Open in VLC'; vlcBtn.disabled = false; }, 2500);
+        } catch(e) {
+          vlcBtn.textContent = '▶ Open in VLC'; vlcBtn.disabled = false;
+          alert('VLC error: ' + e.message);
+        }
+      };
+      btns.appendChild(vlcBtn);
+    }
+
+    // Convert to MP4 (only for non-native)
+    if (!isNative) {
+      var cvtBtn = document.createElement('button');
+      cvtBtn.className = 'vm-mp4-btn';
+      cvtBtn.textContent = '⚙ Convert to MP4';
+      cvtBtn.title = 'Permanently transcode to MP4 using ffmpeg (fully seekable, no streaming needed)';
+      cvtBtn.onclick = async function() {
+        cvtBtn.disabled = true; cvtBtn.textContent = '⏳ Converting…';
+        player.statusEl.textContent = 'Converting with ffmpeg…';
+        player.statusEl.style.color = '#f96900';
+        try {
+          var res = await fetch('/api/transcode', {method:'POST', headers:{'Content-Type':'application/json'},
+            body: JSON.stringify({poi_id: poi.id, src_key: item.local_path||item.filename, src_name: item.name})});
+          var d = await res.json();
+          if (!res.ok) throw new Error(d.error || 'HTTP ' + res.status);
+          bar.innerHTML += '<span style="color:#27ae60;font-size:9px">✓ CONVERTED</span>';
+          var idx = allPois.findIndex(function(p){ return p.id === poi.id; });
+          if (idx >= 0 && d.poi) allPois[idx] = d.poi;
+          player.statusEl.textContent = '✓ Converted — reload to play as native';
+          player.statusEl.style.color = '#27ae60';
+          cvtBtn.remove();
+        } catch(e) {
+          cvtBtn.disabled = false; cvtBtn.textContent = '⚙ Convert to MP4';
+          player.statusEl.textContent = '✗ ' + e.message;
+          player.statusEl.style.color = '#e74c3c';
+        }
+      };
+      btns.appendChild(cvtBtn);
+    }
+
+    wrap.appendChild(btns);
+    mediaDiv.appendChild(wrap);
+  });
+
+  document.getElementById('view-ov').style.display = 'block';
+  document.getElementById('view-modal').style.display = 'flex';
+}
+
+function closeViewModal() {
+  _viewPlayers.forEach(function(p){ try { p.destroy(); } catch(e){} });
+  _viewPlayers = [];
+  document.getElementById('view-ov').style.display = 'none';
+  document.getElementById('view-modal').style.display = 'none';
+  document.getElementById('view-modal-media').innerHTML = '';
+}
+
+document.getElementById('view-modal-close').addEventListener('click', closeViewModal);
+document.getElementById('view-ov').addEventListener('click', function(e) {
+  if (e.target === this) closeViewModal();
+});
+
+// ── State ────────────────────────────────────────────────
+var allFolders=[],allPois=[],allRoutes=[];
+var activeFid=null,selPid=null;
+var markerMap={},routeMap={};
+var pendingM=null,selFiles=[],linkedFiles=[],serverOk=false;
+var searchQ='';
+
+// ── Map ──────────────────────────────────────────────────
+var map=L.map('map',{zoomControl:false}).setView([48.7,19.5],5);
+L.control.zoom({position:'bottomright'}).addTo(map);
+var osmLayer=L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',{attribution:'© CARTO © OSM',subdomains:'abcd',maxZoom:19});
+var topoLayer=L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',{attribution:'© OpenTopoMap',maxZoom:17});
+var satLayer=L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{attribution:'© Esri',maxZoom:19});
+osmLayer.addTo(map);
+L.control.layers({'🗺 Standard':osmLayer,'🏔 Topo':topoLayer,'🛰 Satellite':satLayer},{},{position:'bottomleft'}).addTo(map);
+
+function mkIcon(color){
+  return L.divIcon({className:'',
+    html:'<svg width="22" height="30" viewBox="0 0 24 32"><path d="M12 0C5.37 0 0 5.37 0 12c0 9 12 20 12 20S24 21 24 12C24 5.37 18.63 0 12 0z" fill="'+color+'" stroke="rgba(0,0,0,.2)" stroke-width="1"/><circle cx="12" cy="12" r="4.5" fill="white" opacity=".9"/></svg>',
+    iconSize:[22,30],iconAnchor:[11,30],popupAnchor:[0,-30]
+  });
+}
+
+// ── Helpers ──────────────────────────────────────────────
+function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+function fColor(fid){if(!fid)return '#7a7565';var f=allFolders.find(function(x){return x.id===fid;});return f?f.color:'#7a7565';}
+function fName(fid){if(!fid)return 'Uncategorized';var f=allFolders.find(function(x){return x.id===fid;});return f?f.name:'Uncategorized';}
+function fmtSz(b){if(!b)return '';return b<1048576?(b/1024).toFixed(0)+'KB':(b/1048576).toFixed(1)+'MB';}
+function setSt(msg,t){var e=document.getElementById('stxt');e.textContent=msg;e.style.color=t==='err'?'var(--accent)':t==='ok'?'var(--green)':'var(--muted)';}
+function setFm(msg,t){var e=document.getElementById('fmsg');e.textContent=msg;e.className=t||'';}
+function setConn(st,msg){document.getElementById('cdot').className='cdot '+st;document.getElementById('clbl').textContent=msg;}
+function pinTip(msg){var e=document.getElementById('map-pin-tip');e.textContent=msg;e.classList.add('show');setTimeout(function(){e.classList.remove('show');},2200);}
+
+// ── Server ───────────────────────────────────────────────
+async function checkSrv(){
+  setConn('checking','Checking…');
+  try{await fetch('/api/ping');serverOk=true;setConn('ok','Server online');return true;}
+  catch(e){serverOk=false;setConn('err','Server offline');setSt('Cannot reach server — run: python server.py','err');return false;}
+}
+async function loadAll(){
+  var ok=await checkSrv();if(!ok)return;
+  setSt('Loading…','');
+  try{
+    var r=await fetch('/api/all');if(!r.ok)throw new Error('HTTP '+r.status);
+    var d=await r.json();
+    allFolders=d.folders||[];allPois=d.pois||[];allRoutes=d.routes||[];
+    renderNav();renderList();updFolderSel();
+    setSt(allPois.length+' entries loaded','ok');
+  }catch(e){setSt('Load failed: '+e.message,'err');}
+}
+
+// ── Nav ──────────────────────────────────────────────────
+function renderNav(){
+  var el=document.getElementById('nav-tree'),html='<div class="nlbl">Collections</div>';
+  html+='<div class="ni'+(activeFid===null?' active':'')+'" data-id="ALL"><span class="nico">🗂</span><span class="nname">All Entries</span><span class="ncnt">'+allPois.length+'</span></div>';
+  allFolders.forEach(function(f){
+    var cnt=allPois.filter(function(p){return p.folder_id===f.id;}).length;
+    html+='<div class="ni'+(activeFid===f.id?' active':'')+'" data-id="'+f.id+'"><span class="nico">📁</span><span class="ndot" style="background:'+f.color+'"></span><span class="nname">'+esc(f.name)+'</span><span class="ncnt">'+cnt+'</span><button class="ndel" data-id="'+f.id+'">×</button></div>';
+  });
+  var uncat=allPois.filter(function(p){return !p.folder_id;}).length;
+  if(uncat>0) html+='<div class="ni'+(activeFid==='u'?' active':'')+'" data-id="UNCAT"><span class="nico">📂</span><span class="nname">Uncategorized</span><span class="ncnt">'+uncat+'</span></div>';
+  el.innerHTML=html;
+  el.querySelectorAll('.ni').forEach(function(it){
+    it.addEventListener('click',function(e){
+      if(e.target.classList.contains('ndel'))return;
+      var id=it.dataset.id;activeFid=id==='ALL'?null:id==='UNCAT'?'u':Number(id);
+      renderNav();renderList();updAddr();
+    });
+  });
+  el.querySelectorAll('.ndel').forEach(function(b){
+    b.addEventListener('click',async function(e){
+      e.stopPropagation();
+      var fid=Number(b.dataset.id),f=allFolders.find(function(x){return x.id===fid;});
+      if(!f||!confirm('Delete collection "'+f.name+'"?\nEntries move to Uncategorized.'))return;
+      await delFolder(fid);
+    });
+  });
+}
+function updAddr(){
+  var n='All Collections';
+  if(activeFid==='u')n='Uncategorized';
+  else if(activeFid){var f=allFolders.find(function(x){return x.id===activeFid;});if(f)n=f.name;}
+  document.getElementById('addr-path').value='Travel Archive / '+n;
+}
+
+// ── File List ────────────────────────────────────────────
+function filtered(){
+  var list=allPois.slice();
+  if(activeFid==='u')list=list.filter(function(p){return !p.folder_id;});
+  else if(activeFid!==null)list=list.filter(function(p){return p.folder_id===activeFid;});
+  if(searchQ){var q=searchQ.toLowerCase();list=list.filter(function(p){return p.name.toLowerCase().includes(q)||(p.description||'').toLowerCase().includes(q)||(p.date||'').includes(q)||fName(p.folder_id).toLowerCase().includes(q);});}
+  return list;
+}
+
+function renderList(){
+  var el=document.getElementById('file-list');
+  var pois=filtered().sort(function(a,b){var ya=a.date?a.date.slice(0,4):'0',yb=b.date?b.date.slice(0,4):'0';return yb.localeCompare(ya);});
+  if(!pois.length){
+    el.innerHTML='<div class="empty"><div class="ei">📍</div><div>'+(searchQ?'No results for "'+esc(searchQ)+'"':'No entries yet — use Add Entry to get started')+'</div></div>';
+    setSt('0 items','');updMarkers([]);return;
+  }
+  el.innerHTML=pois.map(function(p){
+    var locS=(p.lat&&p.lng)?p.lat.toFixed(3)+', '+p.lng.toFixed(3):'—';
+    return '<div class="fr'+(p.id===selPid?' sel':'')+'" data-id="'+p.id+'">'
+      +'<span class="fri">📍</span>'
+      +'<span class="frn">'+esc(p.name)+'</span>'
+      +'<span class="fry">'+(p.date?p.date.slice(0,4):'—')+'</span>'
+      +'<span class="frl">'+esc(locS)+'</span>'
+      +'<span class="frc"><span class="frd" style="background:'+fColor(p.folder_id)+'"></span><span class="frcn">'+esc(fName(p.folder_id))+'</span></span>'
+      +'<span class="frf">'+((p.media&&p.media.length)?(function(){var linked=p.media.filter(function(m){return m.local_path;}).length;return linked?'🔗 '+p.media.length:'📎 '+p.media.length;})():'—')+'</span>'
+      +'<span class="fra">'
+        +'<button class="frb o" data-id="'+p.id+'" title="Open in viewer">👁</button>'
+        +'<button class="frb e" data-id="'+p.id+'" title="Edit">✎</button>'
+        +'<button class="frb d" data-id="'+p.id+'" title="Delete">×</button>'
+      +'</span>'
+      +'</div>';
+  }).join('');
+  setSt(pois.length+' item'+(pois.length!==1?'s':'')+' · click to select · double-click to edit','');
+
+  el.querySelectorAll('.fr').forEach(function(row){
+    row.addEventListener('click',function(e){
+      if(e.target.closest('.frb'))return;
+      var poi=allPois.find(function(p){return p.id===Number(row.dataset.id);});if(!poi)return;
+      selPid=poi.id;
+      el.querySelectorAll('.fr').forEach(function(r){r.classList.toggle('sel',r.dataset.id==String(poi.id));});
+      showProps(poi);if(markerMap[poi.id])map.flyTo([poi.lat,poi.lng],10,{duration:.8});
+    });
+    row.addEventListener('dblclick',function(e){
+      if(e.target.closest('.frb'))return;
+      var poi=allPois.find(function(p){return p.id===Number(row.dataset.id);});if(poi)openViewModal(poi);
+    });
+  });
+  el.querySelectorAll('.frb.o').forEach(function(b){b.addEventListener('click',function(e){e.stopPropagation();var poi=allPois.find(function(p){return p.id===Number(b.dataset.id);});if(poi)openViewModal(poi);});});
+  el.querySelectorAll('.frb.e').forEach(function(b){b.addEventListener('click',function(e){e.stopPropagation();var poi=allPois.find(function(p){return p.id===Number(b.dataset.id);});if(poi)openEdit(poi);});});
+  el.querySelectorAll('.frb.d').forEach(function(b){b.addEventListener('click',async function(e){e.stopPropagation();var poi=allPois.find(function(p){return p.id===Number(b.dataset.id);});if(!poi||!confirm('Delete "'+poi.name+'"?'))return;await delPoi(poi.id);});});
+  updMarkers(filtered());
+}
+
+function updMarkers(pois){
+  Object.values(markerMap).forEach(function(m){map.removeLayer(m);});markerMap={};
+  pois.forEach(function(poi){
+    if(!poi.lat||!poi.lng)return;
+    var m=L.marker([poi.lat,poi.lng],{icon:mkIcon(fColor(poi.folder_id))}).addTo(map);
+    m.bindTooltip(poi.name,{direction:'top',offset:[0,-28]});
+    m.on('click',function(){
+      selPid=poi.id;
+      document.querySelectorAll('.fr').forEach(function(r){r.classList.toggle('sel',r.dataset.id==String(poi.id));});
+      showProps(poi);
+      openViewModal(poi);
+    });
+    markerMap[poi.id]=m;
+  });
+  Object.values(routeMap).forEach(function(l){map.removeLayer(l);});routeMap={};
+  allRoutes.forEach(function(r){if(!r.points||r.points.length<2)return;routeMap[r.id]=L.polyline(r.points.map(function(p){return[p.lat,p.lng];}),{color:r.color||'#0078d4',weight:3,opacity:.8}).addTo(map);});
+}
+
+// ── Props ─────────────────────────────────────────────────
+
+function renderMediaItem(item, poiId, container){
+  var type=(item.type||'').toLowerCase();
+  var isImg=type.startsWith('image/');
+  var ext=(item.name||'').toLowerCase().match(/\.[^.]+$/);
+  ext=ext?ext[0]:'';
+  if(isImg){
+    var img=document.createElement('img');
+    img.src=item.url;img.alt=item.name;img.loading='lazy';
+    img.style.cssText='width:100%;border-radius:2px;border:1px solid var(--border);cursor:zoom-in;margin-top:3px';
+    img.title='Click to view full size';
+    img.onclick=function(){
+      // Get all images for this poi for navigation
+      var poi=allPois.find(function(p){return p.id===poiId;});
+      if(!poi){openLightbox([{src:item.url,caption:item.name}],0);return;}
+      var allImgs=poi.media.filter(function(m){return (m.type||'').toLowerCase().startsWith('image/');});
+      var idx=allImgs.indexOf(item);
+      if(idx<0)idx=0;
+      openLightbox(allImgs.map(function(m){return{src:m.url,caption:m.name};}),idx);
+    };
+    container.appendChild(img);
+    return;
+  }
+  // Video item
+  var wrap=document.createElement('div');
+  wrap.style.cssText='margin-top:5px;border:1px solid var(--border);border-radius:2px;overflow:hidden;background:#0a0a14';
+  var namebar=document.createElement('div');
+  namebar.style.cssText='padding:3px 6px;font-size:10px;font-family:"DM Mono",monospace;color:var(--muted);display:flex;align-items:center;gap:6px;background:var(--toolbar)';
+  namebar.innerHTML='🎬 '+esc(item.name)
+    +(item.local_path?'<span style="color:var(--green);font-size:9px">LINKED</span>':'')
+    +(item.transcoded_from?'<span style="color:var(--blue);font-size:9px">TRANSCODED</span>':'')
+    +'<span style="margin-left:auto;font-size:9px;color:#888">'+ext.toUpperCase().replace('.','')+'</span>';
+  wrap.appendChild(namebar);
+
+  var NATIVE_EXTS2=['.mp4','.webm','.ogg','.ogv','.m4v'];
+  var streamKey2=item.local_path||item.filename||(item.url||'').replace('/media/','');
+  var b64key2=btoa(unescape(encodeURIComponent(streamKey2))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=/g,'');
+  var streamSrc2='/stream/'+b64key2;
+  var isNative2=NATIVE_EXTS2.some(function(e){return ext===e;});
+  var directSrc2=item.local_path?streamSrc2:item.url;
+
+  if(item.url||item.local_path){
+    var player2=makeVideoPlayer({
+      streamSrc:streamSrc2,directSrc:directSrc2,
+      isNative:isNative2,b64key:b64key2,maxHeight:'200px'
+    });
+    _viewPlayers.push(player2);
+    wrap.appendChild(player2.el);
+
+    // small action row
+    var btns2=document.createElement('div');
+    btns2.style.cssText='display:flex;gap:5px;padding:4px 6px 6px;flex-wrap:wrap;align-items:center;background:#0a0a14';
+    var badge2=document.createElement('span');
+    badge2.style.cssText='font-size:9px;font-family:"DM Mono",monospace;padding:2px 5px;border:1px solid;border-radius:2px;';
+    if(isNative2){badge2.style.cssText+='border-color:rgba(71,180,255,.3);color:#47b4ff;';badge2.textContent='⚡ Native';}
+    else{badge2.style.cssText+='border-color:rgba(249,105,0,.3);color:#f96900;';badge2.textContent='📡 Stream';}
+    btns2.appendChild(badge2);
+    if(isLocalAccess){
+      var vlcBtn2=document.createElement('button');
+      vlcBtn2.style.cssText='padding:3px 7px;background:#f96900;border:none;border-radius:2px;color:#fff;font-size:10px;cursor:pointer;font-family:"DM Mono",monospace';
+      vlcBtn2.textContent='▶ VLC';
+      vlcBtn2.onclick=async function(){
+        vlcBtn2.disabled=true;vlcBtn2.textContent='…';
+        try{
+          var res=await fetch('/api/play',{method:'POST',headers:{'Content-Type':'application/json'},
+            body:JSON.stringify({local_path:item.local_path||'',filename:item.filename||''})});
+          var d=await res.json();if(!res.ok)throw new Error(d.error||'HTTP '+res.status);
+          vlcBtn2.textContent='✓';setTimeout(function(){vlcBtn2.textContent='▶ VLC';vlcBtn2.disabled=false;},2000);
+        }catch(e){alert('VLC: '+e.message);vlcBtn2.disabled=false;vlcBtn2.textContent='▶ VLC';}
+      };
+      btns2.appendChild(vlcBtn2);
+    }
+    if(!isNative2){
+      var tcBtn2=document.createElement('button');
+      tcBtn2.style.cssText='padding:3px 7px;background:var(--blue);border:none;border-radius:2px;color:#fff;font-size:10px;cursor:pointer;font-family:"DM Mono",monospace';
+      tcBtn2.textContent='⚙ Convert';
+      tcBtn2.onclick=async function(){
+        tcBtn2.disabled=true;tcBtn2.textContent='⏳…';
+        try{
+          var res=await fetch('/api/transcode',{method:'POST',headers:{'Content-Type':'application/json'},
+            body:JSON.stringify({poi_id:poiId,src_key:item.local_path||item.filename,src_name:item.name})});
+          var d=await res.json();if(!res.ok)throw new Error(d.error||'HTTP '+res.status);
+          var idx=allPois.findIndex(function(p){return p.id===poiId;});
+          if(idx>=0)allPois[idx]=d.poi||allPois[idx];
+          if(d.poi){showProps(d.poi);}
+          else{tcBtn2.textContent='✓ Done — refresh';tcBtn2.disabled=false;}
+          setSt('Transcoded to MP4 ✓','ok');
+        }catch(e){
+          tcBtn2.disabled=false;tcBtn2.textContent='⚙ Convert';
+          setSt('Transcode failed: '+e.message,'err');
+        }
+      };
+      btns2.appendChild(tcBtn2);
+    }
+    wrap.appendChild(btns2);
+  } else {
+    var missing=document.createElement('div');
+    missing.style.cssText='padding:8px;font-size:10px;color:var(--muted)';
+    missing.textContent='⚠ File URL missing';
+    wrap.appendChild(missing);
+  }
+  container.appendChild(wrap);
+}
+
+function showProps(poi){
+  document.getElementById('pe').style.display='none';document.getElementById('pc').style.display='block';
+  document.getElementById('pp-name').textContent=poi.name;
+  document.getElementById('pp-year').textContent=poi.date?poi.date.slice(0,4):'—';
+  document.getElementById('pp-date').textContent=poi.date||'—';
+  document.getElementById('pp-coords').textContent=poi.lat.toFixed(5)+', '+poi.lng.toFixed(5);
+  document.getElementById('pp-folder').innerHTML='<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:'+fColor(poi.folder_id)+';margin-right:5px;vertical-align:middle"></span>'+esc(fName(poi.folder_id));
+  document.getElementById('pp-desc').textContent=poi.description||'—';
+  var md=document.getElementById('pp-media');
+  md.innerHTML='';
+  if(!poi.media||!poi.media.length){
+    md.innerHTML='<span style="color:var(--muted);font-size:11px">No files attached</span>';
+  } else {
+    poi.media.forEach(function(item){renderMediaItem(item,poi.id,md);});
+  }
+  document.getElementById('pp-open').onclick=function(){openViewModal(poi);};
+  document.getElementById('pp-edit').onclick=function(){openEdit(poi);};
+  document.getElementById('pp-del').onclick=async function(){
+    if(!confirm('Delete "'+poi.name+'"?'))return;
+    await delPoi(poi.id);
+    document.getElementById('pe').style.display='block';document.getElementById('pc').style.display='none';selPid=null;
+  };
+  switchPane('props');
+}
+
+// ── Pane switching ────────────────────────────────────────
+document.querySelectorAll('.dt').forEach(function(t){t.addEventListener('click',function(){switchPane(t.dataset.pane);});});
+function switchPane(name){
+  document.querySelectorAll('.dt').forEach(function(t){t.classList.toggle('active',t.dataset.pane===name);});
+  document.querySelectorAll('.dp').forEach(function(p){var show=p.id==='pane-'+name;p.classList.toggle('show',show);p.style.display=show?'block':'none';});
+}
+switchPane('add');
+
+// ── Ribbon buttons ────────────────────────────────────────
+document.getElementById('rb-add').addEventListener('click',function(){switchPane('add');this.classList.add('active');document.getElementById('rb-scan').classList.remove('active');});
+document.getElementById('rb-scan').addEventListener('click',function(){switchPane('scan');this.classList.add('active');document.getElementById('rb-add').classList.remove('active');if(fbCurrentPath===null)fbNavigate('');});
+document.getElementById('btn-fit').addEventListener('click',function(){
+  var pois=filtered().filter(function(p){return p.lat&&p.lng;});
+  if(!pois.length){setSt('No markers to fit','');return;}
+  map.flyToBounds(L.latLngBounds(pois.map(function(p){return[p.lat,p.lng];})),{padding:[40,40],duration:1});
+});
+document.getElementById('btn-clr').addEventListener('click',function(){
+  ['inp-name','inp-lat','inp-lng','inp-desc','inp-date','inp-year'].forEach(function(id){document.getElementById(id).value='';});
+  selFiles=[];linkedFiles=[];document.getElementById('dzlist').innerHTML='';
+  if(pendingM){map.removeLayer(pendingM);pendingM=null;}
+  setFm('Form cleared','');
+  document.getElementById('mcoord').textContent='📍 Click map to set coordinates for a new entry';
+});
+document.getElementById('btn-ref').addEventListener('click',loadAll);
+document.getElementById('btn-tnav').addEventListener('click',function(){
+  var n=document.getElementById('nav'),s=document.getElementById('spl-l');
+  var h=n.style.display==='none';n.style.display=h?'':'none';s.style.display=h?'':'none';
+  setTimeout(function(){map.invalidateSize();},50);
+});
+
+// ── Map click ──────────────────────────────────────────────
+map.on('click',function(e){
+  var lat=e.latlng.lat,lng=e.latlng.lng;
+  document.getElementById('inp-lat').value=lat.toFixed(6);
+  document.getElementById('inp-lng').value=lng.toFixed(6);
+  document.getElementById('mcoord').textContent='📍 '+lat.toFixed(5)+', '+lng.toFixed(5)+' — coordinates set ✓';
+  if(pendingM)map.removeLayer(pendingM);
+  pendingM=L.marker([lat,lng],{icon:mkIcon('#d4a853')}).addTo(map);
+  pinTip('Coordinates set: '+lat.toFixed(4)+', '+lng.toFixed(4));
+  switchPane('add');document.getElementById('rb-add').classList.add('active');document.getElementById('rb-scan').classList.remove('active');
+});
+
+// ── Search ────────────────────────────────────────────────
+document.getElementById('addr-search').addEventListener('input',function(){searchQ=this.value.trim();renderList();});
+
+// ── Submit POI ─────────────────────────────────────────────
+document.getElementById('btn-submit').addEventListener('click',async function(){
+  if(!serverOk){var ok=await checkSrv();if(!ok){setFm('Server offline','err');return;}}
+  var name=document.getElementById('inp-name').value.trim();
+  var lat=parseFloat(document.getElementById('inp-lat').value);
+  var lng=parseFloat(document.getElementById('inp-lng').value);
+  var desc=document.getElementById('inp-desc').value.trim();
+  var date=document.getElementById('inp-date').value;
+  var year=document.getElementById('inp-year').value.trim();
+  var fRaw=document.getElementById('inp-folder').value;
+  var fid=fRaw?Number(fRaw):null;
+  if(!date&&year&&/^\d{4}$/.test(year))date=year+'-01-01';
+  if(!name)return setFm('Please enter a name','err');
+  if(isNaN(lat)||isNaN(lng))return setFm('Click the map to set coordinates first','err');
+  if(!date)return setFm('Please set a year or date','err');
+  var btn=this;btn.disabled=true;
+
+  var totalFiles=selFiles.length+linkedFiles.length;
+  if(totalFiles>0){
+    setFm('⏳ Uploading '+totalFiles+' file'+(totalFiles>1?'s':'')+'… please wait','');
+  } else {
+    setFm('Saving…','');
+  }
+
+  try{
+    var fd=new FormData();
+    fd.append('name',name);
+    fd.append('lat',lat);
+    fd.append('lng',lng);
+    fd.append('description',desc||'');
+    fd.append('date',date);
+    if(fid)fd.append('folder_id',fid);
+    fd.append('linked',JSON.stringify(linkedFiles));
+    var copied=window._copiedMedia||[];
+    fd.append('pre_copied',JSON.stringify(copied));
+    for(var i=0;i<selFiles.length;i++){
+      fd.append('files',selFiles[i],selFiles[i].name);
+    }
+    var res=await fetch('/api/pois',{method:'POST',body:fd});
+    var result=await res.json();if(!res.ok)throw new Error(result.error||'HTTP '+res.status);
+    allPois.push(result.poi);
+    if(pendingM){map.removeLayer(pendingM);pendingM=null;}
+    renderNav();renderList();updFolderSel();
+    ['inp-name','inp-lat','inp-lng','inp-desc','inp-date','inp-year'].forEach(function(id){document.getElementById(id).value='';});
+    selFiles=[];linkedFiles=[];window._copiedMedia=[];renderDzList();
+    document.getElementById('mcoord').textContent='📍 Click map to set coordinates for a new entry';
+    setFm('✓ Saved: "'+result.poi.name+'"'+(result.poi.media&&result.poi.media.length?' ('+result.poi.media.length+' files)':''),'ok');
+    setSt(allPois.length+' entries','ok');
+    map.flyTo([result.poi.lat,result.poi.lng],10,{duration:1});
+  }catch(e){setFm('Save failed: '+e.message,'err');}
+  finally{btn.disabled=false;}
+});
+
+// ── Year ↔ Date sync (Add form) ───────────────────────────
+(function(){
+  var inpYear = document.getElementById('inp-year');
+  var inpDate = document.getElementById('inp-date');
+
+  // Typing a 4-digit year: auto-fill date field with Jan 1 of that year
+  inpYear.addEventListener('input', function() {
+    var y = inpYear.value.trim();
+    if (/^\d{4}$/.test(y)) {
+      // Only overwrite date if it doesn't already match this year
+      if (!inpDate.value || inpDate.value.slice(0,4) !== y) {
+        inpDate.value = y + '-01-01';
+      }
+    }
+  });
+  // Pressing Enter in year field moves focus to date for refinement
+  inpYear.addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') { e.preventDefault(); inpDate.focus(); }
+  });
+  // Picking a full date: sync year field
+  inpDate.addEventListener('change', function() {
+    if (inpDate.value && inpDate.value.length >= 4) {
+      inpYear.value = inpDate.value.slice(0, 4);
+    }
+  });
+})();
+
+// ── Year ↔ Date sync (Edit modal) ────────────────────────
+(function(){
+  var eyr = document.getElementById('eyr');
+  var edt = document.getElementById('edt');
+
+  eyr.addEventListener('input', function() {
+    var y = eyr.value.trim();
+    if (/^\d{4}$/.test(y)) {
+      if (!edt.value || edt.value.slice(0,4) !== y) {
+        edt.value = y + '-01-01';
+      }
+    }
+  });
+  eyr.addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') { e.preventDefault(); edt.focus(); }
+  });
+  edt.addEventListener('change', function() {
+    if (edt.value && edt.value.length >= 4) {
+      eyr.value = edt.value.slice(0, 4);
+    }
+  });
+})();
+
+// ── Drop zone ─────────────────────────────────────────────
+var dz=document.getElementById('dz'),dzi=document.getElementById('inp-media'),dzl=document.getElementById('dzlist');
+dz.addEventListener('click',function(){dzi.click();});
+dz.addEventListener('dragover',function(e){e.preventDefault();dz.classList.add('ov');});
+dz.addEventListener('dragleave',function(){dz.classList.remove('ov');});
+dz.addEventListener('drop',function(e){e.preventDefault();dz.classList.remove('ov');addFiles(Array.from(e.dataTransfer.files));});
+dzi.addEventListener('change',function(){addFiles(Array.from(dzi.files));});
+function addFiles(files){
+  selFiles=selFiles.concat(files.filter(function(f){return f.type.startsWith('image/')||f.type.startsWith('video/');}));
+  renderDzList();
+}
+function renderDzList(){
+  var items=linkedFiles.map(function(f){return '<div>🔗 '+esc(f.name.length>42?f.name.slice(0,39)+'…':f.name)+' <span style="color:var(--green);font-size:9px">LINKED</span></div>';})
+    .concat(selFiles.map(function(f){return '<div>📄 '+esc(f.name.length>42?f.name.slice(0,39)+'…':f.name)+'</div>';}));
+  document.getElementById('dzlist').innerHTML=items.join('');
+}
+
+// ── Folder select ─────────────────────────────────────────
+function updFolderSel(){
+  ['inp-folder','ef'].forEach(function(id){
+    var s=document.getElementById(id);if(!s)return;
+    var prev=s.value;s.innerHTML='<option value="">— Uncategorized —</option>';
+    allFolders.forEach(function(f){s.innerHTML+='<option value="'+f.id+'">'+esc(f.name)+'</option>';});
+    if(activeFid&&activeFid!=='u')s.value=activeFid;else if(prev)s.value=prev;
+  });
+}
+
+// ── New folder ─────────────────────────────────────────────
+document.getElementById('btn-addfl').addEventListener('click',async function(){
+  var name=document.getElementById('inp-fn').value.trim();
+  var color=document.getElementById('inp-fc').value;
+  if(!name){setSt('Enter a collection name','err');return;}
+  if(!serverOk){var ok=await checkSrv();if(!ok){setSt('Server offline — run python server.py','err');return;}}
+  try{
+    var res=await fetch('/api/folders',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:name,color:color})});
+    var result=await res.json();if(!res.ok)throw new Error(result.error||'HTTP '+res.status);
+    allFolders.push(result.folder);
+    document.getElementById('inp-fn').value='';
+    activeFid=result.folder.id;
+    renderNav();updFolderSel();renderList();updAddr();
+    setSt('Collection "'+result.folder.name+'" created ✓','ok');
+  }catch(e){setSt('Failed: '+e.message,'err');}
+});
+document.getElementById('inp-fn').addEventListener('keydown',function(e){if(e.key==='Enter')document.getElementById('btn-addfl').click();});
+
+// ── Delete folder ─────────────────────────────────────────
+async function delFolder(id){
+  try{
+    var res=await fetch('/api/folders/'+id,{method:'DELETE'});if(!res.ok)throw new Error('HTTP '+res.status);
+    allFolders=allFolders.filter(function(f){return f.id!==id;});
+    allPois.forEach(function(p){if(p.folder_id===id)p.folder_id=null;});
+    if(activeFid===id)activeFid=null;
+    renderNav();renderList();updFolderSel();updAddr();setSt('Collection deleted','');
+  }catch(e){setSt('Delete failed: '+e.message,'err');}
+}
+
+// ── Delete POI ─────────────────────────────────────────────
+async function delPoi(id){
+  try{
+    var res=await fetch('/api/pois/'+id,{method:'DELETE'});if(!res.ok)throw new Error('HTTP '+res.status);
+    allPois=allPois.filter(function(p){return p.id!==id;});
+    if(markerMap[id]){map.removeLayer(markerMap[id]);delete markerMap[id];}
+    if(selPid===id)selPid=null;
+    renderNav();renderList();setSt('Entry deleted','');
+  }catch(e){setSt('Delete failed: '+e.message,'err');}
+}
+
+// ── Edit modal ─────────────────────────────────────────────
+var editRemovedMedia=[], editNewFiles=[];
+
+function openEdit(poi){
+  document.getElementById('eid').value=poi.id;
+  document.getElementById('en').value=poi.name;
+  document.getElementById('elat').value=poi.lat;
+  document.getElementById('elng').value=poi.lng;
+  document.getElementById('edesc').value=poi.description||'';
+  document.getElementById('edt').value=poi.date||'';
+  document.getElementById('eyr').value=poi.date?poi.date.slice(0,4):'';
+  document.getElementById('emsg').textContent='';document.getElementById('emsg').className='';
+  var s=document.getElementById('ef');s.innerHTML='<option value="">— Uncategorized —</option>';
+  allFolders.forEach(function(f){s.innerHTML+='<option value="'+f.id+'">'+esc(f.name)+'</option>';});
+  s.value=poi.folder_id||'';
+  editRemovedMedia=[];editNewFiles=[];
+  document.getElementById('edzlist').innerHTML='';
+  renderEditMedia(poi.media||[]);
+  document.getElementById('edit-ov').style.display='block';document.getElementById('edit-modal').style.display='flex';
+  document.getElementById('en').focus();
+}
+
+function renderEditMedia(mediaArr){
+  var el=document.getElementById('emedia-list');
+  if(!mediaArr.length){el.innerHTML='<div style="font-size:11px;color:var(--muted);margin-bottom:3px">No files attached</div>';return;}
+  el.innerHTML=mediaArr.map(function(m,i){
+    var key=m.local_path||m.filename||m.name;
+    var icon=m.type&&m.type.startsWith('image/')?'🖼':'🎬';
+    var removed=editRemovedMedia.includes(key);
+    return '<div class="emf'+(removed?' removed':'')+'" data-key="'+esc(key)+'">'
+      +icon+' <span class="emfn" title="'+esc(m.local_path||m.url||m.name)+'">'+esc(m.name)+'</span>'
+      +(m.local_path?'<span style="font-size:9px;color:var(--green)">LINKED</span>':'')
+      +(m.local_path&&!removed?'<button class="emfrelink" data-key="'+esc(key)+'" data-poi="'+esc(document.getElementById('eid').value)+'" title="Pick new file path">↗ Relink</button>':'')
+      +'<button class="emfdel" data-key="'+esc(key)+'" title="'+(removed?'Undo remove':'Remove this file')+'">'+(removed?'↩':'×')+'</button>'
+      +'</div>';
+  }).join('');
+  el.querySelectorAll('.emfdel').forEach(function(btn){
+    btn.addEventListener('click',function(){
+      var key=btn.dataset.key;
+      if(editRemovedMedia.includes(key)){editRemovedMedia=editRemovedMedia.filter(function(k){return k!==key;});}
+      else{editRemovedMedia.push(key);}
+      var poi=allPois.find(function(p){return p.id===Number(document.getElementById('eid').value);});
+      if(poi)renderEditMedia(poi.media||[]);
+    });
+  });
+  el.querySelectorAll('.emfrelink').forEach(function(btn){
+    btn.addEventListener('click',function(){
+      openRelinkPicker(btn.dataset.key, Number(btn.dataset.poi));
+    });
+  });
+}
+
+function closeEdit(){document.getElementById('edit-ov').style.display='none';document.getElementById('edit-modal').style.display='none';}
+document.getElementById('close-edit').addEventListener('click',closeEdit);
+document.getElementById('edit-ov').addEventListener('click',function(e){if(e.target===this)closeEdit();});
+
+var edz=document.getElementById('edz'),edzi=document.getElementById('einp-media'),edzl=document.getElementById('edzlist');
+edz.addEventListener('click',function(){edzi.click();});
+edz.addEventListener('dragover',function(e){e.preventDefault();edz.style.borderColor='var(--blue)';});
+edz.addEventListener('dragleave',function(){edz.style.borderColor='';});
+edz.addEventListener('drop',function(e){e.preventDefault();edz.style.borderColor='';addEditFiles(Array.from(e.dataTransfer.files));});
+edzi.addEventListener('change',function(){addEditFiles(Array.from(edzi.files));edzi.value='';});
+function addEditFiles(files){
+  editNewFiles=editNewFiles.concat(files.filter(function(f){return f.type.startsWith('image/')||f.type.startsWith('video/');}));
+  edzl.innerHTML=editNewFiles.map(function(f){return '<div>📄 '+esc(f.name.length>40?f.name.slice(0,37)+'…':f.name)+'</div>';}).join('');
+}
+
+document.getElementById('esave').addEventListener('click',async function(){
+  var id=Number(document.getElementById('eid').value);
+  var name=document.getElementById('en').value.trim();
+  var lat=parseFloat(document.getElementById('elat').value);
+  var lng=parseFloat(document.getElementById('elng').value);
+  var desc=document.getElementById('edesc').value.trim();
+  var date=document.getElementById('edt').value;
+  var year=document.getElementById('eyr').value.trim();
+  var fRaw=document.getElementById('ef').value;
+  var fid=fRaw?Number(fRaw):null;
+  var ms=document.getElementById('emsg');
+  if(!date&&year&&/^\d{4}$/.test(year))date=year+'-01-01';
+  if(!name){ms.textContent='Name required';ms.className='err';return;}
+  if(isNaN(lat)||isNaN(lng)){ms.textContent='Invalid coordinates';ms.className='err';return;}
+  if(!date){ms.textContent='Date/year required';ms.className='err';return;}
+  ms.textContent='Saving…';ms.className='';
+  try{
+    var res=await fetch('/api/pois/'+id,{method:'PUT',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({name:name,lat:lat,lng:lng,description:desc,date:date,folder_id:fid,
+        remove_media:editRemovedMedia})});
+    var result=await res.json();if(!res.ok)throw new Error(result.error||'HTTP '+res.status);
+    if(editNewFiles.length>0){
+      ms.textContent='⏳ Uploading '+editNewFiles.length+' file'+(editNewFiles.length>1?'s':'')+'…';ms.className='';
+      var fd=new FormData();
+      for(var i=0;i<editNewFiles.length;i++){
+        fd.append('files',editNewFiles[i],editNewFiles[i].name);
+      }
+      var res2=await fetch('/api/pois/'+id+'/media',{method:'POST',body:fd});
+      var r2=await res2.json();if(!res2.ok)throw new Error(r2.error||'HTTP '+res2.status);
+      result=r2;
+    }
+    var idx=allPois.findIndex(function(p){return p.id===id;});if(idx>=0)allPois[idx]=result.poi;
+    ms.textContent='Saved!';ms.className='ok';setTimeout(closeEdit,600);
+    renderNav();renderList();if(selPid===id)showProps(result.poi);setSt('Updated: "'+name+'"','ok');
+  }catch(e){ms.textContent='Error: '+e.message;ms.className='err';}
+});
+
+// ── File Browser (Import pane) ────────────────────────────
+var fbCurrentPath = null;
+var fbCurrentFiles = [];
+
+function b64url(str) {
+  return btoa(unescape(encodeURIComponent(str))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=/g,'');
+}
+
+var NATIVE_EXTS_SET = new Set(['.mp4','.webm','.ogg','.ogv','.m4v']);
+
+async function fbNavigate(path) {
+  var encoded = path ? b64url(path) : 'root';
+  document.getElementById('fb-status').textContent = 'Loading…';
+  document.getElementById('fb-list').innerHTML = '<div id="fb-empty" style="padding:12px;text-align:center;color:var(--muted);font-size:11px">Loading…</div>';
+  try {
+    var res = await fetch('/api/browse/' + encoded);
+    var d = await res.json();
+    if (!res.ok) throw new Error(d.error || 'HTTP ' + res.status);
+    fbCurrentPath = d.path !== undefined ? d.path : '';
+    fbCurrentFiles = d.files || [];
+    document.getElementById('fb-breadcrumb').textContent = fbCurrentPath || '/ (root)';
+    document.getElementById('fb-path-inp').value = fbCurrentPath;
+    document.getElementById('fb-btn-up').disabled = !d.parent && fbCurrentPath !== '';
+    fbRender(d.dirs || [], d.files || [], '');
+    document.getElementById('fb-status').textContent =
+      (d.dirs||[]).length + ' folder' + ((d.dirs||[]).length!==1?'s':'') + ' · ' +
+      (d.files||[]).length + ' video' + ((d.files||[]).length!==1?'s':'');
+    // store parent for up button
+    document.getElementById('fb-btn-up')._parentPath = d.parent || '';
+  } catch(e) {
+    document.getElementById('fb-status').textContent = 'Error: ' + e.message;
+    document.getElementById('fb-list').innerHTML = '<div id="fb-empty" style="padding:12px;text-align:center;color:var(--accent);font-size:11px">⚠ ' + esc(e.message) + '</div>';
+  }
+}
+
+function fbRender(dirs, files, filterVal) {
+  var list = document.getElementById('fb-list');
+  var q = filterVal.toLowerCase();
+
+  // existing linked paths for grey-out
+  var linkedPaths = new Set();
+  allPois.forEach(function(p) {
+    (p.media||[]).forEach(function(m) { if (m.local_path) linkedPaths.add(m.local_path); });
+  });
+
+  var html = '';
+
+  var filteredDirs = q ? dirs.filter(function(d){ return d.name.toLowerCase().includes(q); }) : dirs;
+  filteredDirs.forEach(function(dir) {
+    html += '<div class="fb-dir" data-path="'+esc(dir.path)+'">📁 <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+esc(dir.name)+'</span><span style="font-size:9px;color:var(--muted)">▸</span></div>';
+  });
+
+  var filteredFiles = q ? files.filter(function(f){ return f.name.toLowerCase().includes(q); }) : files;
+  filteredFiles.forEach(function(f) {
+    var ext = (f.name.match(/\.[^.]+$/) || [''])[0].toLowerCase();
+    var isNative = NATIVE_EXTS_SET.has(ext);
+    var isLinked = linkedPaths.has(f.path);
+    html += '<div class="fb-file'+(isLinked?' fb-linked':'')+'">'
+      + '<span style="font-size:12px;flex-shrink:0">🎬</span>'
+      + '<span class="fb-fname" title="'+esc(f.path)+'">'+esc(f.name)+'</span>'
+      + '<span class="fb-fsz">'+fmtSz(f.size)+'</span>'
+      + '<span class="fb-badge '+(isNative?'native':'stream')+'">'+(isNative?'⚡ native':'📡 ffmpeg')+'</span>'
+      + (isLinked ? '<span class="fb-badge linked">✓ linked</span>' : '')
+      + '<button class="fb-btn lnk" data-path="'+esc(f.path)+'" data-name="'+esc(f.name)+'" data-size="'+(f.size||0)+'" data-ext="'+esc(ext)+'" title="Link from original path (instant, no copy)">🔗 Link</button>'
+      + '<button class="fb-btn cpy" data-path="'+esc(f.path)+'" data-name="'+esc(f.name)+'" data-size="'+(f.size||0)+'" data-ext="'+esc(ext)+'" title="Copy file into media folder">📥 Copy</button>'
+      + '</div>';
+  });
+
+  if (!html) html = '<div id="fb-empty" style="padding:14px;text-align:center;color:var(--muted);font-size:11px">'+(q?'No matches for "'+esc(q)+'"':'Empty folder — no video files')+'</div>';
+  list.innerHTML = html;
+
+  list.querySelectorAll('.fb-dir').forEach(function(row) {
+    row.addEventListener('click', function() { fbNavigate(row.dataset.path); });
+  });
+
+  function prefillForm(name) {
+    var bare = name.replace(/\.[^.]+$/, '');
+    document.getElementById('inp-name').value = bare;
+    document.getElementById('inp-lat').value = '';
+    document.getElementById('inp-lng').value = '';
+    document.getElementById('inp-year').value = '';
+    document.getElementById('inp-date').value = '';
+    switchPane('add');
+    document.getElementById('rb-add').classList.add('active');
+    document.getElementById('rb-scan').classList.remove('active');
+  }
+
+  list.querySelectorAll('.fb-btn.lnk').forEach(function(btn) {
+    btn.addEventListener('click', function(e) {
+      e.stopPropagation();
+      var path = btn.dataset.path, name = btn.dataset.name,
+          size = Number(btn.dataset.size), ext = btn.dataset.ext;
+      var already = linkedFiles.some(function(lf){ return lf.path === path; });
+      if (!already) { linkedFiles.push({name:name, path:path, size:size, ext:ext}); renderDzList(); }
+      prefillForm(name);
+      setFm('🔗 "'+name+'" linked — set year, click map, then save','ok');
+      setSt('Linked: ' + name,'ok');
+    });
+  });
+
+  list.querySelectorAll('.fb-btn.cpy').forEach(function(btn) {
+    btn.addEventListener('click', async function(e) {
+      e.stopPropagation();
+      var path = btn.dataset.path, name = btn.dataset.name, ext = btn.dataset.ext;
+      btn.textContent = '⏳'; btn.disabled = true;
+      document.getElementById('fb-status').textContent = 'Copying "'+name+'"…';
+      try {
+        var res = await fetch('/api/link', {method:'POST', headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({path:path, name:name, ext:ext})});
+        var d = await res.json();
+        if (!res.ok) throw new Error(d.error || 'HTTP ' + res.status);
+        if (!window._copiedMedia) window._copiedMedia = [];
+        window._copiedMedia.push(d.media);
+        document.getElementById('dzlist').innerHTML += '<div>✅ '+esc(name)+' copied to media</div>';
+        document.getElementById('fb-status').textContent = '"'+name+'" copied ✓';
+        btn.textContent = '✓'; btn.disabled = false;
+        prefillForm(name);
+      } catch(err) {
+        document.getElementById('fb-status').textContent = 'Copy failed: '+err.message;
+        btn.textContent = '📥 Copy'; btn.disabled = false;
+      }
+    });
+  });
+}
+
+document.getElementById('fb-btn-up').addEventListener('click', function() {
+  var p = this._parentPath || '';
+  fbNavigate(p);
+});
+document.getElementById('fb-btn-root').addEventListener('click', function() { fbNavigate(''); });
+document.getElementById('fb-btn-go').addEventListener('click', function() {
+  fbNavigate(document.getElementById('fb-path-inp').value.trim());
+});
+document.getElementById('fb-path-inp').addEventListener('keydown', function(e) {
+  if (e.key === 'Enter') fbNavigate(this.value.trim());
+});
+document.getElementById('fb-filter').addEventListener('input', function() {
+  fbRender(
+    Array.from(document.getElementById('fb-list').querySelectorAll('.fb-dir')).map(function(r){ return {name:r.textContent.trim(), path:r.dataset.path}; }),
+    fbCurrentFiles,
+    this.value
+  );
+});
+
+// Relink-all collapsible
+document.getElementById('relink-hdr').addEventListener('click', function() {
+  document.getElementById('relink-body').classList.toggle('open');
+});
+document.getElementById('btn-relink-all').addEventListener('click', async function() {
+  var oldP = document.getElementById('relink-old').value.trim();
+  var newP = document.getElementById('relink-new').value.trim();
+  var out = document.getElementById('relink-out');
+  if (!oldP || !newP) { out.textContent = 'Fill in both fields.'; return; }
+  out.textContent = 'Relinking…';
+  try {
+    var res = await fetch('/api/relink', {method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({old_prefix: oldP, new_prefix: newP})});
+    var d = await res.json();
+    if (!res.ok) throw new Error(d.error || 'HTTP ' + res.status);
+    out.textContent = '✓ Updated: ' + d.updated + ' · Missing: ' + d.missing + ' · Skipped: ' + d.skipped;
+    out.style.color = 'var(--green)';
+    await loadAll();
+  } catch(e) {
+    out.textContent = '✗ ' + e.message;
+    out.style.color = 'var(--accent)';
+  }
+});
+
+// ── Relink Picker Modal ────────────────────────────────────
+var _rpCurrentPath = '';
+var _rpCurrentFiles = [];
+var _rpTargetKey = ''; // old path key to relink
+var _rpTargetPoi = null; // poi id
+
+function openRelinkPicker(oldKey, poiId) {
+  _rpTargetKey = oldKey;
+  _rpTargetPoi = poiId;
+  document.getElementById('rp-status').textContent = 'Browsing to pick the new location of: ' + oldKey;
+  document.getElementById('rp-list').innerHTML = '';
+  document.getElementById('rp-bc').textContent = '';
+  document.getElementById('rp-path-inp').value = '';
+  document.getElementById('rp-ov').style.display = 'block';
+  document.getElementById('rp-modal').style.display = 'flex';
+  rpNavigate(fbCurrentPath || '');
+}
+function closeRelinkPicker() {
+  document.getElementById('rp-ov').style.display = 'none';
+  document.getElementById('rp-modal').style.display = 'none';
+}
+document.getElementById('rp-close').addEventListener('click', closeRelinkPicker);
+document.getElementById('rp-ov').addEventListener('click', function(e){ if(e.target===this)closeRelinkPicker(); });
+
+async function rpNavigate(path) {
+  var encoded = path ? b64url(path) : 'root';
+  document.getElementById('rp-status').textContent = 'Loading…';
+  try {
+    var res = await fetch('/api/browse/' + encoded);
+    var d = await res.json();
+    if (!res.ok) throw new Error(d.error || 'HTTP ' + res.status);
+    _rpCurrentPath = d.path || '';
+    _rpCurrentFiles = d.files || [];
+    document.getElementById('rp-bc').textContent = _rpCurrentPath || '/ (root)';
+    document.getElementById('rp-path-inp').value = _rpCurrentPath;
+    document.getElementById('rp-up')._parentPath = d.parent || '';
+    rpRender(d.dirs || [], d.files || []);
+    document.getElementById('rp-status').textContent = 'Pick the new file below — or navigate into a subfolder.';
+  } catch(e) {
+    document.getElementById('rp-status').textContent = '⚠ ' + e.message;
+  }
+}
+
+function rpRender(dirs, files) {
+  var html = '';
+  dirs.forEach(function(dir) {
+    html += '<div class="fb-dir" data-path="'+esc(dir.path)+'">📁 <span style="flex:1">'+esc(dir.name)+'</span><span style="font-size:9px;color:var(--muted)">▸</span></div>';
+  });
+  files.forEach(function(f) {
+    html += '<div class="fb-file" style="cursor:pointer" data-path="'+esc(f.path)+'">'
+      + '<span style="font-size:12px">🎬</span>'
+      + '<span class="fb-fname" title="'+esc(f.path)+'">'+esc(f.name)+'</span>'
+      + '<span class="fb-fsz">'+fmtSz(f.size)+'</span>'
+      + '<button class="fb-btn lnk" data-path="'+esc(f.path)+'" data-name="'+esc(f.name)+'">✓ Select</button>'
+      + '</div>';
+  });
+  if (!html) html = '<div style="padding:14px;text-align:center;color:var(--muted);font-size:11px">No video files here — navigate into a subfolder</div>';
+  var list = document.getElementById('rp-list');
+  list.innerHTML = html;
+  list.querySelectorAll('.fb-dir').forEach(function(row) {
+    row.addEventListener('click', function() { rpNavigate(row.dataset.path); });
+  });
+  list.querySelectorAll('.fb-btn.lnk').forEach(function(btn) {
+    btn.addEventListener('click', async function(e) {
+      e.stopPropagation();
+      var newPath = btn.dataset.path, newName = btn.dataset.name;
+      document.getElementById('rp-status').textContent = 'Relinking…';
+      try {
+        var res = await fetch('/api/pois/' + _rpTargetPoi + '/relink', {
+          method: 'POST', headers: {'Content-Type':'application/json'},
+          body: JSON.stringify({old_key: _rpTargetKey, new_path: newPath, new_name: newName})
+        });
+        var d = await res.json();
+        if (!res.ok) throw new Error(d.error || 'HTTP ' + res.status);
+        // Update local state
+        var idx = allPois.findIndex(function(p){ return p.id === _rpTargetPoi; });
+        if (idx >= 0 && d.poi) allPois[idx] = d.poi;
+        closeRelinkPicker();
+        // Refresh edit modal media list
+        var poi = allPois.find(function(p){ return p.id === _rpTargetPoi; });
+        if (poi) renderEditMedia(poi.media || []);
+        setSt('Relinked ✓ → ' + newName, 'ok');
+      } catch(err) {
+        document.getElementById('rp-status').textContent = '✗ ' + err.message;
+      }
+    });
+  });
+}
+
+document.getElementById('rp-up').addEventListener('click', function() { rpNavigate(this._parentPath || ''); });
+document.getElementById('rp-root').addEventListener('click', function() { rpNavigate(''); });
+document.getElementById('rp-go').addEventListener('click', function() { rpNavigate(document.getElementById('rp-path-inp').value.trim()); });
+document.getElementById('rp-path-inp').addEventListener('keydown', function(e) { if(e.key==='Enter') rpNavigate(this.value.trim()); });
+
+// (Import pane auto-load is handled by the ribbon button listener above)
+
+// ── Login ──────────────────────────────────────────────────
+var PWD='admin';
+function chkLogin(){return sessionStorage.getItem('poi_auth')==='ok';}
+document.getElementById('lbtn').addEventListener('click',function(){
+  var pw=document.getElementById('lpw').value;
+  if(pw===PWD){sessionStorage.setItem('poi_auth','ok');document.getElementById('login-screen').style.display='none';loadAll();}
+  else{document.getElementById('lerr').textContent='Wrong password';document.getElementById('lpw').value='';document.getElementById('lpw').focus();}
+});
+document.getElementById('lpw').addEventListener('keydown',function(e){if(e.key==='Enter')document.getElementById('lbtn').click();});
+document.getElementById('btn-logout').addEventListener('click',function(){sessionStorage.removeItem('poi_auth');location.reload();});
+
+// ── Drag resize: left splitter ─────────────────────────────
+(function(){
+  var spl=document.getElementById('spl-l'),nav=document.getElementById('nav');
+  var drag=false,sx,sw;
+  spl.addEventListener('mousedown',function(e){drag=true;sx=e.clientX;sw=nav.offsetWidth;spl.classList.add('dragging');document.body.style.cssText='cursor:col-resize;user-select:none';});
+  document.addEventListener('mousemove',function(e){if(!drag)return;nav.style.width=Math.max(110,Math.min(420,sw+(e.clientX-sx)))+'px';map.invalidateSize();});
+  document.addEventListener('mouseup',function(){if(!drag)return;drag=false;spl.classList.remove('dragging');document.body.style.cssText='';map.invalidateSize();});
+})();
+
+// ── Drag resize: right splitter ────────────────────────────
+(function(){
+  var spl=document.getElementById('spl-r'),det=document.getElementById('detail');
+  var drag=false,sx,sw;
+  spl.addEventListener('mousedown',function(e){drag=true;sx=e.clientX;sw=det.offsetWidth;spl.classList.add('dragging');document.body.style.cssText='cursor:col-resize;user-select:none';});
+  document.addEventListener('mousemove',function(e){if(!drag)return;det.style.width=Math.max(195,Math.min(560,sw-(e.clientX-sx)))+'px';map.invalidateSize();});
+  document.addEventListener('mouseup',function(){if(!drag)return;drag=false;spl.classList.remove('dragging');document.body.style.cssText='';map.invalidateSize();});
+})();
+
+// ── Drag resize: horizontal splitter ───────────────────────
+(function(){
+  var spl=document.getElementById('hspl'),fs=document.getElementById('files');
+  var drag=false,sy,sh;
+  spl.addEventListener('mousedown',function(e){drag=true;sy=e.clientY;sh=fs.offsetHeight;spl.classList.add('dragging');document.body.style.cssText='cursor:row-resize;user-select:none';});
+  document.addEventListener('mousemove',function(e){
+    if(!drag)return;
+    var newH=Math.max(55,Math.min(document.getElementById('centre').offsetHeight-120,sh+(e.clientY-sy)));
+    fs.style.height=newH+'px';fs.style.flex='none';map.invalidateSize();
+  });
+  document.addEventListener('mouseup',function(){if(!drag)return;drag=false;spl.classList.remove('dragging');document.body.style.cssText='';map.invalidateSize();});
+})();
+
+// ── Boot ───────────────────────────────────────────────────
+if(chkLogin()){document.getElementById('login-screen').style.display='none';loadAll();}
+else{document.getElementById('login-screen').style.display='flex';}
+
+})();
+</script>
+</body>
+</html>
