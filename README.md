@@ -25,7 +25,7 @@ A self-hosted travel memory app — pin your trips on an interactive world map, 
 
 ```bash
 git clone <this-repo>
-cd travelapp-main
+cd travelapp
 python server.py
 ```
 
